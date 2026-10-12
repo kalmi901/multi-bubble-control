@@ -318,6 +318,7 @@ def solve_rkck45(
     args=(),
     error_reducer=max_error_reducer,
     max_steps=100_000,
+    store_trajectory=False,
 ):
     """Integrate a batch of ODE systems using adaptive RKCK45."""
 
@@ -338,6 +339,9 @@ def solve_rkck45(
         raise ValueError("t_span must satisfy t_end > t_start.")
 
     n_envs = y.shape[0]
+
+    n_accepted = np.zeros(n_envs, dtype=np.int64)
+    n_rejected = np.zeros(n_envs, dtype=np.int64)
 
     t = np.full(
         n_envs,
@@ -367,13 +371,35 @@ def solve_rkck45(
     if np.any(h <= 0.0):
         raise ValueError("initial_step must be positive.")
 
-    for _ in range(max_steps):
+    if store_trajectory:
+        trajectory_t = [[t_start] for _ in range(n_envs)]
+        trajectory_y = [[y[env].copy()] for env in range(n_envs)]
+    else:
+        trajectory_t = None
+        trajectory_y = None
+
+    for iteration in range(max_steps):
         remaining = t_end - t
 
         active = remaining > 0.0
 
         if not np.any(active):
-            return t, y
+            if store_trajectory and trajectory_t is not None and trajectory_y is not None:
+                trajectory = {
+                    "t": [np.asarray(values, dtype=np.float64) for values in trajectory_t],
+                    "y": [np.stack(values) for values in trajectory_y],
+                }
+            else:
+                trajectory = None
+
+            info = {
+                "n_accepted": n_accepted,
+                "n_rejected": n_rejected,
+                "n_iterations": iteration,
+                "trajectory": trajectory,
+            }
+
+            return t, y, info
 
         # Do not step beyond the requested endpoint.
         h_trial = np.minimum(
@@ -410,6 +436,11 @@ def solve_rkck45(
         # Inactive environments must never be committed.
         accepted &= active
 
+        rejected = active & ~accepted
+
+        n_accepted[accepted] += 1
+        n_rejected[rejected] += 1
+
         # Remember which accepted steps were endpoint-limited.
         endpoint_step = accepted & (h_trial >= remaining)
 
@@ -421,7 +452,13 @@ def solve_rkck45(
         # floating-point addition to reproduce t_end exactly.
         t[endpoint_step] = t_end
 
-        # Only active systems receive an updated step size.
+        if store_trajectory and trajectory_t is not None and trajectory_y is not None:
+            for env in np.flatnonzero(accepted):
+                trajectory_t[env].append(t[env])
+                trajectory_y[env].append(y[env].copy())
+
+        # Accepted and rejected active systems both receive their
+        # individually suggested next step size.
         h[active] = h_new[active]
 
     raise RuntimeError(
