@@ -155,3 +155,273 @@ def rkck45_step(
     error = y5 - y4
 
     return y5, error
+
+
+def compute_scaled_error(
+    error: Array,
+    y: Array,
+    y_trial: Array,
+    *,
+    rtol: float,
+    atol: float | Array,
+) -> Array:
+    """Scale a local truncation error using relative and absolute tolerances."""
+    error = np.asarray(error, dtype=np.float64)
+    y = np.asarray(y, dtype=np.float64)
+    y_trial = np.asarray(y_trial, dtype=np.float64)
+    atol = np.asarray(atol, dtype=np.float64)
+
+    if error.shape != y.shape or y_trial.shape != y.shape:
+        raise ValueError("error, y and y_trial must have identical shapes.")
+
+    if rtol < 0.0:
+        raise ValueError("rtol must be non-negative.")
+
+    if np.any(atol < 0.0):
+        raise ValueError("atol must be non-negative.")
+
+    try:
+        scale = atol + rtol * np.maximum(np.abs(y), np.abs(y_trial))
+
+    except ValueError as exc:
+        raise ValueError(
+            f"atol with shape {atol.shape} is not broadcastable to state shape {y.shape}."
+        ) from exc
+
+    if np.any(scale <= 0.0):
+        raise ValueError("Error scale must be positive for every state component.")
+
+    return np.abs(error) / scale
+
+
+def max_error_reducer(
+    scaled_error: Array,
+) -> Array:
+    """Return the worst scaled component error for each environment."""
+    scaled_error = np.asarray(
+        scaled_error,
+        dtype=np.float64,
+    )
+
+    if scaled_error.ndim < 2:
+        raise ValueError("Scaled error must have shape (n_envs, *state_shape).")
+
+    state_axes = tuple(range(1, scaled_error.ndim))
+
+    return np.max(
+        scaled_error,
+        axis=state_axes,
+    )
+
+
+def update_step_size(
+    error_norm: Array,
+    h: Array,
+    *,
+    safety: float = 0.9,
+    min_factor: float = 0.2,
+    max_factor: float = 5.0,
+) -> tuple[Array, Array]:
+    """Accept/reject trial steps and propose new step sizes."""
+    error_norm = np.asarray(error_norm, dtype=np.float64)
+    h = np.asarray(h, dtype=np.float64)
+
+    if error_norm.shape != h.shape:
+        raise ValueError("error_norm ahd  h must have identical shapes.")
+
+    if error_norm.ndim != 1:
+        raise ValueError("error_norm and h must have shape (num_envs, ).")
+
+    if not np.all(np.isfinite(error_norm)):
+        raise FloatingPointError("error_norm contains non-finite values.")
+
+    accepted = error_norm <= 1.0
+
+    factor = np.empty_like(error_norm)
+
+    zero_error = error_norm == 0.0
+    factor[zero_error] = max_factor
+
+    nonzero = ~zero_error
+    factor[nonzero] = safety * error_norm[nonzero] ** (-1.0 / 5.0)
+
+    factor = np.clip(factor, min_factor, max_factor)
+
+    h_new = h * factor
+
+    return accepted, h_new
+
+
+def adaptive_rkck45_step(
+    rhs,
+    t,
+    y,
+    h,
+    *,
+    rtol,
+    atol,
+    args=(),
+    error_reducer=max_error_reducer,
+):
+    """Evaluate one adaptive batched RKCK45 trial step.
+
+    Returns
+    -------
+    y_trial
+        Fifth-order trial solution for every environment.
+
+    h_new
+        Suggested next step size for every environment.
+
+    accepted
+        Boolean acceptance mask with shape ``(n_envs,)``.
+
+    error_norm
+        Reduced scaled error for every environment.
+    """
+    y_trial, error = rkck45_step(
+        rhs,
+        t,
+        y,
+        h,
+        args=args,
+    )
+
+    scaled_error = compute_scaled_error(
+        error,
+        y,
+        y_trial,
+        rtol=rtol,
+        atol=atol,
+    )
+
+    error_norm = error_reducer(scaled_error)
+
+    accepted, h_new = update_step_size(
+        error_norm,
+        h,
+    )
+
+    return y_trial, h_new, accepted, error_norm
+
+
+def solve_rkck45(
+    rhs,
+    y0,
+    t_span,
+    *,
+    initial_step,
+    rtol,
+    atol,
+    args=(),
+    error_reducer=max_error_reducer,
+    max_steps=100_000,
+):
+    """Integrate a batch of ODE systems using adaptive RKCK45."""
+
+    y = np.asarray(y0, dtype=np.float64).copy()
+
+    if y.ndim < 1:
+        raise ValueError("y0 must contain an environment dimension.")
+
+    if not np.all(np.isfinite(y)):
+        raise ValueError("y0 contains non-finite values.")
+
+    t_start, t_end = map(float, t_span)
+
+    if not np.isfinite(t_start) or not np.isfinite(t_end):
+        raise ValueError("t_span must contain finite values.")
+
+    if t_end <= t_start:
+        raise ValueError("t_span must satisfy t_end > t_start.")
+
+    n_envs = y.shape[0]
+
+    t = np.full(
+        n_envs,
+        t_start,
+        dtype=np.float64,
+    )
+
+    h = np.asarray(
+        initial_step,
+        dtype=np.float64,
+    )
+
+    if h.ndim == 0:
+        h = np.full(
+            n_envs,
+            float(h),
+            dtype=np.float64,
+        )
+    elif h.shape != (n_envs,):
+        raise ValueError(f"initial_step must be a scalar or have shape ({n_envs},).")
+    else:
+        h = h.copy()
+
+    if not np.all(np.isfinite(h)):
+        raise ValueError("initial_step contains non-finite values.")
+
+    if np.any(h <= 0.0):
+        raise ValueError("initial_step must be positive.")
+
+    for _ in range(max_steps):
+        remaining = t_end - t
+
+        active = remaining > 0.0
+
+        if not np.any(active):
+            return t, y
+
+        # Do not step beyond the requested endpoint.
+        h_trial = np.minimum(
+            h,
+            remaining,
+        )
+
+        # Finished environments remain in the batch because this keeps
+        # the RHS batch shape and environment-specific args unchanged.
+        h_trial = np.where(
+            active,
+            h_trial,
+            0.0,
+        )
+
+        # Detect inability to advance floating-point time.
+        underflow = active & ((t + h_trial) == t)
+
+        if np.any(underflow):
+            indices = np.flatnonzero(underflow)
+            raise RuntimeError(f"RKCK45 step-size underflow for environment(s) {indices.tolist()}.")
+
+        y_trial, h_new, accepted, _ = adaptive_rkck45_step(
+            rhs,
+            t,
+            y,
+            h_trial,
+            rtol=rtol,
+            atol=atol,
+            args=args,
+            error_reducer=error_reducer,
+        )
+
+        # Inactive environments must never be committed.
+        accepted &= active
+
+        # Remember which accepted steps were endpoint-limited.
+        endpoint_step = accepted & (h_trial >= remaining)
+
+        # Commit only accepted systems.
+        y[accepted] = y_trial[accepted]
+        t[accepted] += h_trial[accepted]
+
+        # Force exact endpoint equality instead of relying on
+        # floating-point addition to reproduce t_end exactly.
+        t[endpoint_step] = t_end
+
+        # Only active systems receive an updated step size.
+        h[active] = h_new[active]
+
+    raise RuntimeError(
+        f"RKCK45 exceeded max_steps={max_steps} before all environments reached the endpoint."
+    )
