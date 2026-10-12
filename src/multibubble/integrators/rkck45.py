@@ -2,22 +2,24 @@ from collections.abc import Callable
 from typing import Any
 
 import numpy as np
+from numpy.typing import NDArray
 
-Array = np.ndarray
-RHS = Callable[..., Array]
+FloatArray = NDArray[np.float64]
+BoolArray = NDArray[np.bool_]
+RHS = Callable[..., FloatArray]
 
 
-def _expand_env_vector(values: Array, ndim: int) -> Array:
+def _expand_env_vector(values: FloatArray, ndim: int) -> FloatArray:
     """Expand an environment vector for broadcasting over state dimensions."""
     return values.reshape((values.shape[0],) + (1,) * (ndim - 1))
 
 
 def _evaluate_rhs(
     rhs: RHS,
-    t: Array,
-    y: Array,
+    t: FloatArray,
+    y: FloatArray,
     args: tuple[Any, ...],
-) -> Array:
+) -> FloatArray:
     """Evaluate and validate the right-hand side."""
     dydt = np.asarray(
         rhs(t, y, *args),
@@ -38,12 +40,12 @@ def _evaluate_rhs(
 
 def rkck45_step(
     rhs: RHS,
-    t: Array,
-    y: Array,
-    h: Array,
+    t: FloatArray,
+    y: FloatArray,
+    h: FloatArray,
     *,
     args: tuple[Any, ...] = (),
-) -> tuple[Array, Array]:
+) -> tuple[FloatArray, FloatArray]:
     """Evaluate one batched Runge-Kutta-Cash-Karp 4(5) step.
 
     Parameters
@@ -158,13 +160,13 @@ def rkck45_step(
 
 
 def compute_scaled_error(
-    error: Array,
-    y: Array,
-    y_trial: Array,
+    error: FloatArray,
+    y: FloatArray,
+    y_trial: FloatArray,
     *,
     rtol: float,
-    atol: float | Array,
-) -> Array:
+    atol: float | FloatArray,
+) -> FloatArray:
     """Scale a local truncation error using relative and absolute tolerances."""
     error = np.asarray(error, dtype=np.float64)
     y = np.asarray(y, dtype=np.float64)
@@ -195,8 +197,8 @@ def compute_scaled_error(
 
 
 def max_error_reducer(
-    scaled_error: Array,
-) -> Array:
+    scaled_error: FloatArray,
+) -> FloatArray:
     """Return the worst scaled component error for each environment."""
     scaled_error = np.asarray(
         scaled_error,
@@ -215,13 +217,13 @@ def max_error_reducer(
 
 
 def update_step_size(
-    error_norm: Array,
-    h: Array,
+    error_norm: FloatArray,
+    h: FloatArray,
     *,
     safety: float = 0.9,
     min_factor: float = 0.2,
     max_factor: float = 5.0,
-) -> tuple[Array, Array]:
+) -> tuple[BoolArray, FloatArray]:
     """Accept/reject trial steps and propose new step sizes."""
     error_norm = np.asarray(error_norm, dtype=np.float64)
     h = np.asarray(h, dtype=np.float64)
