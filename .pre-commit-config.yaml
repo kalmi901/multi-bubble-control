@@ -3,7 +3,7 @@ repos:
     hooks:
       - id: ruff-check
         name: Ruff lint
-        entry: ruff check --fix
+        entry: ruff check
         language: system
         types: [python]
 
