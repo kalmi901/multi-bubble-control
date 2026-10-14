@@ -15,9 +15,9 @@ from multibubble.physics.single_bubble import (
 
 def _parse_args():
     p = argparse.ArgumentParser(description="Single Run")
-    p.add_argument("--radius", type=float, default=50.0, help="Equilibrum bubble radius [micron]")
+    p.add_argument("--radius", type=float, default=50.0, help="Equilibrium bubble radius [micron]")
     p.add_argument("--frequency", type=float, default=25.0, help="Excitation frequency [kHz]")
-    p.add_argument("--amplitude", type=float, default=0.3, help="Excitation amplitued [bar]")
+    p.add_argument("--amplitude", type=float, default=0.3, help="Excitation amplitude [bar]")
     p.add_argument(
         "--ref_radius",
         type=float,
@@ -86,13 +86,13 @@ def main():
     plt.figure()
     plt.plot(y[:, 0], y[:, 1], linewidth=1.5)
     plt.xlabel(r"$R/R_{ref}\, [-]$")
-    plt.ylabel(r"$U/U_{ref}\, [-]$")
+    plt.ylabel(r"$d(R/R_{ref})/d\tau\, [-]$")
     plt.title("Phase portrait")
     plt.tight_layout()
 
     plt.figure()
     plt.plot(t[1:], np.diff(t))
-    plt.xlabel("t")
+    plt.xlabel(r"$\tau\, [-]$")
     plt.ylabel("Accepted dt")
     plt.title("Adaptive RKCK45 step sizes")
     plt.tight_layout()

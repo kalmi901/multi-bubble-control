@@ -252,22 +252,30 @@ def test_driven_bubble_matches_scipy_dop853_at_checkpoints():
 def test_batched_integration_matches_independent_simulations():
     material = MaterialProperties()
 
+    radii = np.array(
+        [40e-6, 50e-6, 60e-6],
+        dtype=np.float64,
+    )
+
+    frequencies = np.array(
+        [20e3, 25e3, 30e3],
+        dtype=np.float64,
+    )
+
     amplitudes = np.array(
         [0.1e5, 0.3e5, 0.5e5],
         dtype=np.float64,
     )
 
-    radius = 50e-6
-    frequency = 25e3
-    reference_radius = radius
+    reference_radius = 100e-6
 
     bubble = BubbleParameters(
-        equilibrium_radius=radius,
+        equilibrium_radius=radii,
     )
 
     forcing = AcousticForcing(
         pressure_amplitude=amplitudes,
-        frequency=frequency,
+        frequency=frequencies,
     )
 
     batch_params = prepare_single_bubble_parameters(
@@ -277,13 +285,11 @@ def test_batched_integration_matches_independent_simulations():
         reference_radius,
     )
 
-    y0_batch = np.array(
-        [
-            [1.0, 0.0],
-            [1.0, 0.0],
-            [1.0, 0.0],
-        ],
-        dtype=np.float64,
+    y0_batch = np.column_stack(
+        (
+            radii / reference_radius,
+            np.zeros_like(radii),
+        )
     )
 
     _, y_batch, _ = solve_rkck45(
@@ -298,7 +304,16 @@ def test_batched_integration_matches_independent_simulations():
 
     independent_states = []
 
-    for amplitude in amplitudes:
+    for radius, amplitude, frequency in zip(
+        radii,
+        amplitudes,
+        frequencies,
+        strict=True,
+    ):
+        bubble_independent = BubbleParameters(
+            equilibrium_radius=float(radius),
+        )
+
         forcing_independent = AcousticForcing(
             pressure_amplitude=float(amplitude),
             frequency=frequency,
@@ -306,13 +321,13 @@ def test_batched_integration_matches_independent_simulations():
 
         params_independent = prepare_single_bubble_parameters(
             material,
-            bubble,
+            bubble_independent,
             forcing_independent,
             reference_radius,
         )
 
         y0 = np.array(
-            [[1.0, 0.0]],
+            [[float(radius) / reference_radius, 0.0]],
             dtype=np.float64,
         )
 

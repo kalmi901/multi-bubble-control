@@ -105,13 +105,19 @@ def _homogeneous_pressure(
     t: FloatArray,
     params: PreparedSingleBubbleParameters,
 ) -> tuple[FloatArray, FloatArray]:
+    """Return acoustic pressure and its physical-time derivative.
+
+    ``t`` is the dimensionless acoustic-cycle time tau = f * t_phys.
+    """
     theta = 2.0 * np.pi * t + params.forcing_phase
 
     pressure = params.forcing_amplitude * np.sin(theta)
 
-    pressure_dt = params.forcing_amplitude * params.forcing_angular_frequency * np.cos(theta)
+    pressure_time_derivative = (
+        params.forcing_amplitude * params.forcing_angular_frequency * np.cos(theta)
+    )
 
-    return pressure, pressure_dt
+    return pressure, pressure_time_derivative
 
 
 def single_bubble_rhs(
@@ -137,7 +143,7 @@ def single_bubble_rhs(
     # Polytropic gas-pressure contribution.
     gas_term = (params.equilibrium_radius_ratio * inv_R) ** params.gas_pressure_exponent
 
-    pressure, pressure_dt = _homogeneous_pressure(
+    pressure, pressure_time_derivative = _homogeneous_pressure(
         t,
         params,
     )
@@ -149,7 +155,7 @@ def single_bubble_rhs(
         - params.viscous_coefficient * U * inv_R
         - 1.5 * (1.0 - params.wall_mach_scale * U / 3.0) * U**2
         - (1.0 + params.wall_mach_scale * U) * params.acoustic_pressure_scale * pressure
-        - params.acoustic_pressure_derivative_scale * pressure_dt * R
+        - params.acoustic_pressure_derivative_scale * pressure_time_derivative * R
     )
 
     denominator = (
