@@ -15,9 +15,20 @@ from multibubble.physics.coupled_bubbles import (
 
 def _parse_args():
     p = argparse.ArgumentParser(description="Coupled-bubble single run")
-    p.add_argument("--radii", type=list, default=[50, 50], help="Equilibrium bubble radii [micron]")
     p.add_argument(
-        "--positions", type=list, default=[0, 1], help="Dimensionless position of bubbles [1D]"
+        "--radii",
+        type=float,
+        nargs="+",
+        default=[50.0, 50.0],
+        help="Equilibrium bubble radii [micron]",
+    )
+
+    p.add_argument(
+        "--positions",
+        type=float,
+        nargs="+",
+        default=[0.0, 1.0],
+        help="Dimensionless position of bubbles [1D]",
     )
     p.add_argument("--frequency", type=float, default=25.0, help="Excitation frequency [kHz]")
     p.add_argument("--amplitude", type=float, default=0.3, help="Excitation amplitude [bar]")
@@ -37,6 +48,9 @@ def _parse_args():
 def main():
 
     args = _parse_args()
+
+    assert len(args.radii) == len(args.positions)
+
     material = MaterialProperties()
 
     bubbles = CoupledBubblesParameters(
@@ -116,7 +130,7 @@ def main():
 
     plt.xlabel(r"$\tau\, [-]$")
     plt.ylabel(r"$R/R_{\mathrm{ref}}\, [-]$")
-    plt.title("Dimensionless Radius-Time ruffCurves")
+    plt.title("Dimensionless Radius-Time Curves")
 
     if n_bubbles > 1:
         plt.legend()
