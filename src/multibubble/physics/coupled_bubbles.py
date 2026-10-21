@@ -37,7 +37,7 @@ class PreparedCoupledBubblesParameters:
     # Fixed geometry: (E, N, D)
     position: FloatArray
 
-    radial_coupling: FloatArray  # (E, N, D)
+    radial_coupling: FloatArray  # (E, N, N)
 
 
 def _environment_size(

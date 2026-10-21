@@ -383,3 +383,130 @@ def test_solution_converges_with_tighter_rkck45_tolerances():
     assert np.all(np.isfinite(y_reference))
     assert error_coarse > 0.0
     assert error_fine < error_coarse
+
+
+def test_batched_environments_match_independent_coupled_integrations():
+    material = MaterialProperties()
+
+    equilibrium_radius = np.array(
+        [
+            [35e-6, 50e-6],
+            [40e-6, 55e-6],
+            [45e-6, 60e-6],
+        ],
+        dtype=np.float64,
+    )
+
+    position = np.array(
+        [
+            [
+                [0.0],
+                [0.12],
+            ],
+            [
+                [0.0],
+                [0.18],
+            ],
+            [
+                [0.0],
+                [0.25],
+            ],
+        ],
+        dtype=np.float64,
+    )
+
+    pressure_amplitude = np.array(
+        [0.20e5, 0.30e5, 0.40e5],
+        dtype=np.float64,
+    )
+
+    frequency = np.array(
+        [22e3, 25e3, 28e3],
+        dtype=np.float64,
+    )
+
+    phase = np.array(
+        [0.1, 0.2, -0.15],
+        dtype=np.float64,
+    )
+
+    reference_radius = np.array(
+        [50e-6, 55e-6, 60e-6],
+        dtype=np.float64,
+    )
+
+    bubbles = CoupledBubblesParameters(
+        equilibrium_radius=equilibrium_radius,
+        position=position,
+    )
+
+    forcing = AcousticForcing(
+        pressure_amplitude=pressure_amplitude,
+        frequency=frequency,
+        phase=phase,
+    )
+
+    params = prepare_coupled_bubbles_parameters(
+        material,
+        bubbles,
+        forcing,
+        reference_radius,
+    )
+
+    y0 = np.stack(
+        (
+            params.equilibrium_radius_ratio,
+            np.zeros_like(params.equilibrium_radius_ratio),
+        ),
+        axis=-1,
+    )
+
+    _, y_batched, _ = _integrate_coupled(
+        params,
+        y0,
+        t_end=4.0,
+        rtol=1e-10,
+        atol=1e-12,
+    )
+
+    for env in range(equilibrium_radius.shape[0]):
+        independent_bubbles = CoupledBubblesParameters(
+            equilibrium_radius=equilibrium_radius[env],
+            position=position[env],
+        )
+
+        independent_forcing = AcousticForcing(
+            pressure_amplitude=pressure_amplitude[env],
+            frequency=frequency[env],
+            phase=phase[env],
+        )
+
+        independent_params = prepare_coupled_bubbles_parameters(
+            material,
+            independent_bubbles,
+            independent_forcing,
+            reference_radius[env],
+        )
+
+        y0_independent = np.stack(
+            (
+                independent_params.equilibrium_radius_ratio,
+                np.zeros_like(independent_params.equilibrium_radius_ratio),
+            ),
+            axis=-1,
+        )
+
+        _, y_independent, _ = _integrate_coupled(
+            independent_params,
+            y0_independent,
+            t_end=4.0,
+            rtol=1e-10,
+            atol=1e-12,
+        )
+
+        assert_allclose(
+            y_batched[env],
+            y_independent[0],
+            rtol=1e-8,
+            atol=1e-10,
+        )

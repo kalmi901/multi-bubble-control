@@ -1,14 +1,14 @@
 {
   "amplitude_bar": 1.5,
-  "example": "rkck45_single_bubble",
+  "example": "rkck45_coupled_bubbles",
   "figure": "rkck45_coupled_bubbles_weak.png",
   "figure_sha256": "1d05e7ec5ad807659bb8853e8328e8c2ebf6063651b30a483e22663aa6e048e5",
   "frequency_khz": 25.0,
-  "generated_utc": "2026-10-21T14:41:41.757481+00:00",
-  "git_commit": "c8e6d17fd82a67a9837717f9b0be9547988b881b",
+  "generated_utc": "2026-10-21T15:05:27.587016+00:00",
+  "git_commit": "9b69d2c0c6f1cd87e5e65f8314f631e088af9ecb",
   "git_dirty": true,
-  "interaction": "none",
-  "model": "single-bubble Keller-Miksis radial dynamics",
+  "interaction": "instantaneous pressure coupling",
+  "model": "fixed-position coupled Keller-Miksis radial dynamics",
   "positions_dimensionless": [
     0.0,
     1.0

@@ -63,8 +63,6 @@ def main():
         position=np.asarray(args.positions, dtype=np.float64)[..., np.newaxis],
     )
 
-    print(bubbles)
-
     forcing = AcousticForcing(
         pressure_amplitude=args.amplitude * 1e5, frequency=args.frequency * 1e3
     )
@@ -174,9 +172,9 @@ def main():
         from tools.figure_io import save_figure_with_metadata
 
         metadata = {
-            "example": "rkck45_single_bubble",
-            "model": "single-bubble Keller-Miksis radial dynamics",
-            "interaction": "none",
+            "example": "rkck45_coupled_bubbles",
+            "model": "fixed-position coupled Keller-Miksis radial dynamics",
+            "interaction": "instantaneous pressure coupling",
             "radii_micron": np.asarray(args.radii).tolist(),
             "positions_dimensionless": np.asarray(args.positions).tolist(),
             "frequency_khz": args.frequency,

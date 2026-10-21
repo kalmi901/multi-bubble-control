@@ -481,3 +481,76 @@ def test_assemble_radial_coupling_system():
         rhs,
         expected_rhs,
     )
+
+
+def test_radial_coupling_excludes_self_interaction():
+    material = MaterialProperties()
+
+    bubbles = CoupledBubblesParameters(
+        equilibrium_radius=np.array(
+            [40e-6, 50e-6, 60e-6],
+            dtype=np.float64,
+        ),
+        position=np.array(
+            [
+                [0.0],
+                [0.25],
+                [1.0],
+            ],
+            dtype=np.float64,
+        ),
+    )
+
+    forcing = AcousticForcing(
+        pressure_amplitude=0.3e5,
+        frequency=25e3,
+    )
+
+    reference_radius = 50e-6
+
+    params = prepare_coupled_bubbles_parameters(
+        material,
+        bubbles,
+        forcing,
+        reference_radius,
+    )
+
+    coupling = params.radial_coupling
+
+    assert coupling.shape == (1, 3, 3)
+
+    # Self-interaction must be excluded exactly.
+    diagonal = np.diagonal(
+        coupling,
+        axis1=1,
+        axis2=2,
+    )
+
+    assert_allclose(
+        diagonal,
+        0.0,
+        rtol=0.0,
+        atol=0.0,
+    )
+
+    # x* = x / (c/f), therefore
+    # K_ij = (R_ref / (c/f)) / |x_i* - x_j*|.
+    reference_length = material.sound_speed / forcing.frequency
+
+    expected_k01 = (
+        reference_radius / reference_length / abs(bubbles.position[0, 0] - bubbles.position[1, 0])
+    )
+
+    assert_allclose(
+        coupling[0, 0, 1],
+        expected_k01,
+        rtol=1e-14,
+        atol=0.0,
+    )
+
+    assert_allclose(
+        coupling[0, 1, 0],
+        expected_k01,
+        rtol=1e-14,
+        atol=0.0,
+    )

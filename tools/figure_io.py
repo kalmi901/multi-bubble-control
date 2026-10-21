@@ -16,6 +16,10 @@ def save_figure_with_metadata(
 ) -> None:
     output_path = Path(output_path)
 
+    git_commit = get_git_commit()
+    git_dirty = get_git_is_dirty()
+    generated_utc = datetime.now(UTC).isoformat()
+
     output_path.parent.mkdir(
         parents=True,
         exist_ok=True,
@@ -32,9 +36,9 @@ def save_figure_with_metadata(
     metadata = {
         **metadata,
         "figure": output_path.name,
-        "generated_utc": datetime.now(UTC).isoformat(),
-        "git_commit": get_git_commit(),
-        "git_dirty": get_git_is_dirty(),
+        "generated_utc": generated_utc,
+        "git_commit": git_commit,
+        "git_dirty": git_dirty,
         "figure_sha256": sha256_file(output_path),
     }
 
