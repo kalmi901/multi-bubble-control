@@ -1,10 +1,9 @@
 import numpy as np
 from numpy.testing import assert_allclose
 
+from multibubble.physics import AcousticForcing, MaterialProperties
 from multibubble.physics.single_bubble import (
-    AcousticForcing,
     BubbleParameters,
-    MaterialProperties,
     prepare_single_bubble_parameters,
     single_bubble_rhs,
 )

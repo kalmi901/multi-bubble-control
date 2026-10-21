@@ -1,0 +1,34 @@
+{
+  "benchmark": "single_bubble_bifurcation",
+  "figure": "single_bubble_bifurcation.png",
+  "figure_sha256": "220e91b234de711bd097344645e6fcb1d1933d153bc0f1df07c57513a77c2193",
+  "frequency_khz": 25.0,
+  "generated_utc": "2026-10-21T14:24:33.021020+00:00",
+  "git_commit": "c8e6d17fd82a67a9837717f9b0be9547988b881b",
+  "git_dirty": true,
+  "interaction": "none",
+  "model": "single-bubble Keller-Miksis radial dynamics",
+  "num_amplitudes": 128,
+  "pressure_range_bar": [
+    0.2,
+    1.9
+  ],
+  "radius_micron": 41.3,
+  "reference_radius_micron": 41.3,
+  "sample_cycles": 32,
+  "solver": {
+    "atol": [
+      1e-09,
+      1e-09
+    ],
+    "initial_step": 0.001,
+    "name": "RKCK45",
+    "rtol": 1e-08
+  },
+  "statistics": {
+    "accepted_steps": 16021536,
+    "elapsed_seconds": 216.2578714999836,
+    "rejected_steps": 4551413
+  },
+  "transient_cycles": 512
+}

@@ -6,10 +6,9 @@ from numpy.testing import assert_allclose
 from scipy.integrate import solve_ivp
 
 from multibubble.integrators import solve_rkck45
+from multibubble.physics import AcousticForcing, MaterialProperties
 from multibubble.physics.single_bubble import (
-    AcousticForcing,
     BubbleParameters,
-    MaterialProperties,
     prepare_single_bubble_parameters,
     single_bubble_rhs,
 )

@@ -1,0 +1,52 @@
+{
+  "amplitude_bar": 1.5,
+  "example": "rkck45_coupled_bubbles",
+  "figure": "rkck45_coupled_bubbles_strong.png",
+  "figure_sha256": "4d93d44ec17762dc7b30cf1fe477c754ae9b44a7c924a7773fdf0a4f2b338798",
+  "frequency_khz": 25.0,
+  "generated_utc": "2026-10-21T15:05:56.104532+00:00",
+  "git_commit": "9b69d2c0c6f1cd87e5e65f8314f631e088af9ecb",
+  "git_dirty": true,
+  "interaction": "instantaneous pressure coupling",
+  "model": "fixed-position coupled Keller-Miksis radial dynamics",
+  "positions_dimensionless": [
+    0.0,
+    0.02
+  ],
+  "radii_micron": [
+    50.0,
+    50.0
+  ],
+  "reference_radius_micron": 49.99999999999999,
+  "response": {
+    "max_abs_wall_mach": [
+      0.39220501291654575,
+      0.3922050129163129
+    ],
+    "max_abs_wall_velocity_m_per_s": [
+      588.3075193748186,
+      588.3075193744693
+    ],
+    "radius_max_over_equilibrium": [
+      3.347855462394145,
+      3.3478554623211028
+    ],
+    "radius_min_over_equilibrium": [
+      0.1117185314222348,
+      0.1117185314222438
+    ]
+  },
+  "solver": {
+    "atol": [
+      1e-10,
+      1e-10
+    ],
+    "initial_step": 0.001,
+    "name": "RKCK45",
+    "rtol": 1e-09
+  },
+  "statistics": {
+    "accepted_steps": 3113,
+    "rejected_steps": 121
+  }
+}
