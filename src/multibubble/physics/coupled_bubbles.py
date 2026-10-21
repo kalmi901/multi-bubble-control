@@ -37,6 +37,8 @@ class PreparedCoupledBubblesParameters:
     # Fixed geometry: (E, N, D)
     position: FloatArray
 
+    radial_coupling: FloatArray  # (E, N, D)
+
 
 def _environment_size(
     value: Parameter,
@@ -237,6 +239,47 @@ def _as_position_tensor(
     )
 
 
+def _prepare_radial_coupling(
+    position: FloatArray,
+    reference_radius: FloatArray,
+    sound_speed: FloatArray,
+    frequency: FloatArray,
+) -> FloatArray:
+    """Return K_ij = R_ref / d_ij for fixed dimensionless geometry."""
+
+    delta = position[:, :, None, :] - position[:, None, :, :]  # (E, N, N, D)
+
+    distance = np.linalg.norm(
+        delta,
+        axis=-1,
+    )  # (E, N, N)
+
+    n_bubbles = distance.shape[1]
+
+    diagonal = np.eye(
+        n_bubbles,
+        dtype=bool,
+    )[None, :, :]
+
+    if np.any((distance == 0.0) & ~diagonal):
+        raise ValueError("Distinct bubbles must not occupy the same position.")
+
+    inverse_distance = np.zeros_like(distance)
+
+    np.divide(
+        1.0,
+        distance,
+        out=inverse_distance,
+        where=~diagonal,
+    )
+
+    reference_length = sound_speed / frequency  # (E, 1)
+
+    coupling_scale = (reference_radius / reference_length)[:, :, None]  # (E, 1, 1)
+
+    return coupling_scale * inverse_distance
+
+
 def prepare_coupled_bubbles_parameters(
     material: MaterialProperties,
     bubble: CoupledBubblesParameters,
@@ -380,6 +423,9 @@ def prepare_coupled_bubbles_parameters(
         forcing_angular_frequency=omega,
         forcing_phase=phase,
         position=position,
+        radial_coupling=_prepare_radial_coupling(
+            position=position, reference_radius=r_ref, sound_speed=c, frequency=frequency
+        ),
     )
 
 
@@ -420,6 +466,50 @@ def _homogeneous_pressure(
     )
 
     return pressure, pressure_time_derivative
+
+
+def _assemble_radial_coupling_system(
+    R: FloatArray,
+    U: FloatArray,
+    numerator: FloatArray,
+    denominator: FloatArray,
+    radial_coupling: FloatArray,
+) -> tuple[FloatArray, FloatArray]:
+    """Assemble A @ acceleration = rhs for fixed radial coupling.
+
+    Shapes
+    ------
+    R, U, numerator, denominator : (E, N)
+    radial_coupling              : (E, N, N)
+
+    Returns
+    -------
+    matrix : (E, N, N)
+    rhs    : (E, N)
+    """
+
+    inverse_denominator = 1.0 / denominator
+
+    # A_eij = delta_ij + (1 / D_ei) K_eij R_ej^2
+    coupling_matrix = np.einsum(
+        "ei,eij,ej->eij",
+        inverse_denominator,
+        radial_coupling,
+        R**2,
+    )
+
+    matrix = coupling_matrix + np.eye(R.shape[1], dtype=R.dtype)[None, :, :]
+
+    # C_ei = sum_j K_eij * 2 R_ej U_ej^2
+    explicit_coupling = np.einsum(
+        "eij,ej->ei",
+        radial_coupling,
+        2.0 * R * U**2,
+    )
+
+    rhs = inverse_denominator * (numerator - explicit_coupling)
+
+    return matrix, rhs
 
 
 def coupled_bubbles_rhs(
@@ -470,11 +560,16 @@ def coupled_bubbles_rhs(
 
     dydt = np.empty_like(y)
 
-    dydt[..., 0] = U
+    matrix, rhs = _assemble_radial_coupling_system(
+        R, U, numerator, denominator, params.radial_coupling
+    )
 
-    # MBC-9:
-    # This is currently only the uncoupled/self-dynamics part.
-    # The coupled acceleration matrix solve will replace this line.
-    dydt[..., 1] = numerator / denominator
+    acceleration = np.linalg.solve(
+        matrix,
+        rhs[..., np.newaxis],
+    ).squeeze(-1)
+
+    dydt[..., 0] = U
+    dydt[..., 1] = acceleration
 
     return dydt

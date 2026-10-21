@@ -4,17 +4,16 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from multibubble.integrators import solve_rkck45
+from multibubble.physics import AcousticForcing, MaterialProperties
 from multibubble.physics.coupled_bubbles import (
-    AcousticForcing,
     CoupledBubblesParameters,
-    MaterialProperties,
     coupled_bubbles_rhs,
     prepare_coupled_bubbles_parameters,
 )
 
 
 def _parse_args():
-    p = argparse.ArgumentParser(description="Coupled-bubble single run")
+    p = argparse.ArgumentParser(description="Coupled-bubbles single run")
     p.add_argument(
         "--radii",
         type=float,

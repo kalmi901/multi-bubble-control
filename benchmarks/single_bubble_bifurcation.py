@@ -5,68 +5,67 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from multibubble.integrators import solve_rkck45
+from multibubble.physics import AcousticForcing, MaterialProperties
 from multibubble.physics.single_bubble import (
-    AcousticForcing,
     BubbleParameters,
-    MaterialProperties,
     prepare_single_bubble_parameters,
     single_bubble_rhs,
 )
 
 
 def _parse_args():
-    parser = argparse.ArgumentParser(description="Single-bubble Poincare / bifurcation benchmark")
+    p = argparse.ArgumentParser(description="Single-bubble Poincare / bifurcation benchmark")
 
-    parser.add_argument(
+    p.add_argument(
         "--radius",
         type=float,
         default=41.3,
         help="Equilibrium bubble radius [micron]",
     )
 
-    parser.add_argument(
+    p.add_argument(
         "--frequency",
         type=float,
         default=25.0,
         help="Driving frequency [kHz]",
     )
 
-    parser.add_argument(
+    p.add_argument(
         "--p-min",
         type=float,
         default=0.2,
         help="Minimum pressure amplitude [bar]",
     )
 
-    parser.add_argument(
+    p.add_argument(
         "--p-max",
         type=float,
         default=1.9,
         help="Maximum pressure amplitude [bar]",
     )
 
-    parser.add_argument(
+    p.add_argument(
         "--num-amplitudes",
         type=int,
         default=128,
         help="Number of pressure amplitudes",
     )
 
-    parser.add_argument(
+    p.add_argument(
         "--transient-cycles",
         type=int,
         default=512,
         help="Discarded transient cycles",
     )
 
-    parser.add_argument(
+    p.add_argument(
         "--sample-cycles",
         type=int,
         default=32,
         help="Poincare samples retained per pressure amplitude",
     )
 
-    return parser.parse_args()
+    return p.parse_args()
 
 
 def _print_progress(

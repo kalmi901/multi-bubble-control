@@ -4,10 +4,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from multibubble.integrators import solve_rkck45
+from multibubble.physics import AcousticForcing, MaterialProperties
 from multibubble.physics.single_bubble import (
-    AcousticForcing,
     BubbleParameters,
-    MaterialProperties,
     prepare_single_bubble_parameters,
     single_bubble_rhs,
 )

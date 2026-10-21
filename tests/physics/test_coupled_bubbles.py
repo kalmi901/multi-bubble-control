@@ -1,10 +1,10 @@
 import numpy as np
 from numpy.testing import assert_allclose
 
+from multibubble.physics import AcousticForcing, MaterialProperties
 from multibubble.physics.coupled_bubbles import (
-    AcousticForcing,
     CoupledBubblesParameters,
-    MaterialProperties,
+    _assemble_radial_coupling_system,
     coupled_bubbles_rhs,
     prepare_coupled_bubbles_parameters,
 )
@@ -404,4 +404,80 @@ def test_single_bubble_limit_matches_single_bubble_rhs():
         dydt_single,
         rtol=1e-13,
         atol=1e-13,
+    )
+
+
+def test_assemble_radial_coupling_system():
+    R = np.array(
+        [[2.0, 3.0]],
+        dtype=np.float64,
+    )
+
+    U = np.array(
+        [[0.5, -0.25]],
+        dtype=np.float64,
+    )
+
+    numerator = np.array(
+        [[10.0, 20.0]],
+        dtype=np.float64,
+    )
+
+    denominator = np.array(
+        [[2.0, 4.0]],
+        dtype=np.float64,
+    )
+
+    coupling = np.array(
+        [
+            [
+                [0.0, 0.1],
+                [0.2, 0.0],
+            ]
+        ],
+        dtype=np.float64,
+    )
+
+    matrix, rhs = _assemble_radial_coupling_system(
+        R,
+        U,
+        numerator,
+        denominator,
+        coupling,
+    )
+
+    expected_matrix = np.array(
+        [
+            [
+                [
+                    1.0,
+                    (1.0 / 2.0) * 0.1 * 3.0**2,
+                ],
+                [
+                    (1.0 / 4.0) * 0.2 * 2.0**2,
+                    1.0,
+                ],
+            ]
+        ],
+        dtype=np.float64,
+    )
+
+    expected_rhs = np.array(
+        [
+            [
+                (1.0 / 2.0) * (10.0 - 2.0 * 0.1 * 3.0 * (-0.25) ** 2),
+                (1.0 / 4.0) * (20.0 - 2.0 * 0.2 * 2.0 * 0.5**2),
+            ]
+        ],
+        dtype=np.float64,
+    )
+
+    assert_allclose(
+        matrix,
+        expected_matrix,
+    )
+
+    assert_allclose(
+        rhs,
+        expected_rhs,
     )
