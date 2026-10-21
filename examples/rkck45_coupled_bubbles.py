@@ -40,6 +40,12 @@ def _parse_args():
     p.add_argument(
         "--t_end", type=float, default=10.0, help="Integration domain end (dimensionless time)"
     )
+    p.add_argument(
+        "--save",
+        type=str,
+        default=None,
+        help="Optional output figure path",
+    )
 
     return p.parse_args()
 
@@ -56,6 +62,8 @@ def main():
         equilibrium_radius=np.asarray(args.radii, dtype=np.float64) * 1e-6,
         position=np.asarray(args.positions, dtype=np.float64)[..., np.newaxis],
     )
+
+    print(bubbles)
 
     forcing = AcousticForcing(
         pressure_amplitude=args.amplitude * 1e5, frequency=args.frequency * 1e3
@@ -118,7 +126,7 @@ def main():
     print("max wall Mach [-] :", np.array2string(max_wall_mach, precision=6))
 
     n_bubbles = y.shape[1]
-    plt.figure()
+    fig = plt.figure()
     for i in range(n_bubbles):
         plt.plot(
             t,
@@ -161,6 +169,38 @@ def main():
     plt.ylabel(r"$\Delta\tau\, [-]$")
     plt.title("Adaptive RKCK45 Step Sizes")
     plt.tight_layout()
+
+    if args.save is not None:
+        from tools.figure_io import save_figure_with_metadata
+
+        metadata = {
+            "example": "rkck45_single_bubble",
+            "model": "single-bubble Keller-Miksis radial dynamics",
+            "interaction": "none",
+            "radii_micron": np.asarray(args.radii).tolist(),
+            "positions_dimensionless": np.asarray(args.positions).tolist(),
+            "frequency_khz": args.frequency,
+            "amplitude_bar": args.amplitude,
+            "reference_radius_micron": reference_radius * 1e6,
+            "solver": {
+                "name": "RKCK45",
+                "rtol": 1e-9,
+                "atol": [1e-10, 1e-10],
+                "initial_step": 1e-3,
+            },
+            "statistics": {
+                "accepted_steps": int(info["n_accepted"][0]),
+                "rejected_steps": int(info["n_rejected"][0]),
+            },
+            "response": {
+                "radius_min_over_equilibrium": np.asarray(r_min).tolist(),
+                "radius_max_over_equilibrium": np.asarray(r_max).tolist(),
+                "max_abs_wall_velocity_m_per_s": np.asarray(max_wall_velocity).tolist(),
+                "max_abs_wall_mach": np.asarray(max_wall_mach).tolist(),
+            },
+        }
+
+        save_figure_with_metadata(fig, args.save, metadata)
 
     plt.show()
 

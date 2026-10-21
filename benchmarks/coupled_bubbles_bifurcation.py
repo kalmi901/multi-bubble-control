@@ -11,6 +11,7 @@ from multibubble.physics.coupled_bubbles import (
     coupled_bubbles_rhs,
     prepare_coupled_bubbles_parameters,
 )
+from tools.progress import print_progress
 
 
 def _parse_args():
@@ -67,37 +68,14 @@ def _parse_args():
         help="Poincare samples retained per pressure amplitude",
     )
 
-    return p.parse_args()
-
-
-def _print_progress(
-    current: int,
-    total: int,
-    start_time: float,
-    transient_cycles: int,
-    *,
-    width: int = 30,
-):
-    elapsed = perf_counter() - start_time
-
-    fraction = current / total
-    filled = int(width * fraction)
-    bar = "#" * filled + "-" * (width - filled)
-
-    eta = elapsed * (total - current) / current if current > 0 else 0.0
-
-    phase = "transient" if current <= transient_cycles else "sampling "
-
-    print(
-        f"\r[{bar}] "
-        f"{current:4d}/{total} "
-        f"({100.0 * fraction:5.1f}%) "
-        f"{phase} | "
-        f"elapsed {elapsed:7.1f}s | "
-        f"ETA {eta:7.1f}s",
-        end="",
-        flush=True,
+    p.add_argument(
+        "--save",
+        type=str,
+        default=None,
+        help="Optional output figure path",
     )
+
+    return p.parse_args()
 
 
 def main():
@@ -186,11 +164,13 @@ def main():
         if cycle >= args.transient_cycles:
             samples.append(y[..., 0].copy())
 
-        _print_progress(
+        phase = "transient" if cycle < args.transient_cycles else "sampling"
+
+        print_progress(
             cycle + 1,
             total_cycles,
             start,
-            args.transient_cycles,
+            phase=phase,
         )
 
     print()
@@ -238,6 +218,40 @@ def main():
         plt.legend()
 
     plt.tight_layout()
+
+    if args.save is not None:
+        from tools.figure_io import save_figure_with_metadata
+
+        metadata = {
+            "benchmark": "coupled_bubbles_bifurcation",
+            "model": "fixed-position coupled Keller-Miksis radial dynamics",
+            "interaction": "instantaneous pressure coupling",
+            "radii_micron": np.asarray(args.radii).tolist(),
+            "positions_dimensionless": np.asarray(args.positions).tolist(),
+            "frequency_khz": args.frequency,
+            "pressure_range_bar": [
+                args.p_min,
+                args.p_max,
+            ],
+            "num_amplitudes": args.num_amplitudes,
+            "transient_cycles": args.transient_cycles,
+            "sample_cycles": args.sample_cycles,
+            "reference_radius_micron": reference_radius * 1e6,
+            "solver": {
+                "name": "RKCK45",
+                "rtol": 1e-8,
+                "atol": [1e-9, 1e-9],
+                "initial_step": 1e-3,
+            },
+            "statistics": {
+                "accepted_steps": int(np.sum(accepted_steps)),
+                "rejected_steps": int(np.sum(rejected_steps)),
+                "elapsed_seconds": elapsed,
+            },
+        }
+
+        save_figure_with_metadata(plt.gcf(), args.save, metadata)
+
     plt.show()
 
 

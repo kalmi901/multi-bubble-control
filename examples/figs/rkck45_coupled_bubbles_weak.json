@@ -1,0 +1,52 @@
+{
+  "amplitude_bar": 1.5,
+  "example": "rkck45_single_bubble",
+  "figure": "rkck45_coupled_bubbles_weak.png",
+  "figure_sha256": "1d05e7ec5ad807659bb8853e8328e8c2ebf6063651b30a483e22663aa6e048e5",
+  "frequency_khz": 25.0,
+  "generated_utc": "2026-10-21T14:41:41.757481+00:00",
+  "git_commit": "c8e6d17fd82a67a9837717f9b0be9547988b881b",
+  "git_dirty": true,
+  "interaction": "none",
+  "model": "single-bubble Keller-Miksis radial dynamics",
+  "positions_dimensionless": [
+    0.0,
+    1.0
+  ],
+  "radii_micron": [
+    50.0,
+    50.0
+  ],
+  "reference_radius_micron": 49.99999999999999,
+  "response": {
+    "max_abs_wall_mach": [
+      0.46216006654200564,
+      0.462160066542009
+    ],
+    "max_abs_wall_velocity_m_per_s": [
+      693.2400998130084,
+      693.2400998130134
+    ],
+    "radius_max_over_equilibrium": [
+      3.545010408772078,
+      3.545010408772078
+    ],
+    "radius_min_over_equilibrium": [
+      0.10472479222081567,
+      0.10472479222081574
+    ]
+  },
+  "solver": {
+    "atol": [
+      1e-10,
+      1e-10
+    ],
+    "initial_step": 0.001,
+    "name": "RKCK45",
+    "rtol": 1e-09
+  },
+  "statistics": {
+    "accepted_steps": 3153,
+    "rejected_steps": 130
+  }
+}

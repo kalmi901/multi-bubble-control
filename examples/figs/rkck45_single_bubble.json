@@ -1,0 +1,33 @@
+{
+  "amplitude_bar": 0.3,
+  "example": "rkck45_single_bubble",
+  "figure": "rkck45_single_bubble.png",
+  "figure_sha256": "7685bf5178a7bb63f5b38526c2e1cf99875b8ce48ff4a9a7d69e70629eaf35a5",
+  "frequency_khz": 25.0,
+  "generated_utc": "2026-10-21T14:29:21.351173+00:00",
+  "git_commit": "c8e6d17fd82a67a9837717f9b0be9547988b881b",
+  "git_dirty": true,
+  "interaction": "none",
+  "model": "single-bubble Keller-Miksis radial dynamics",
+  "radius_micron": 50.0,
+  "reference_radius_micron": 49.99999999999999,
+  "response": {
+    "max_abs_wall_mach": 0.001247188556470069,
+    "max_abs_wall_velocity_m_per_s": 1.8707828347051036,
+    "radius_max_over_equilibrium": 1.1407658647626486,
+    "radius_min_over_equilibrium": 0.8930418297181368
+  },
+  "solver": {
+    "atol": [
+      1e-10,
+      1e-10
+    ],
+    "initial_step": 0.001,
+    "name": "RKCK45",
+    "rtol": 1e-09
+  },
+  "statistics": {
+    "accepted_steps": 2010,
+    "rejected_steps": 71
+  }
+}
