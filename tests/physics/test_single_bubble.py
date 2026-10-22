@@ -34,12 +34,7 @@ def test_unforced_equilibrium_has_zero_rhs():
 
     reference_radius = 100e-6
 
-    params = prepare_single_bubble_parameters(
-        material,
-        bubble,
-        field,
-        reference,
-    )
+    params = prepare_single_bubble_parameters(material, bubble, field, reference, 1)
 
     y = np.array(
         [
@@ -92,12 +87,7 @@ def test_rhs_preserves_batch_shape():
         frequency=frequencies,
     )
 
-    params = prepare_single_bubble_parameters(
-        material,
-        bubble,
-        field,
-        reference,
-    )
+    params = prepare_single_bubble_parameters(material, bubble, field, reference, len(frequencies))
 
     y = np.array(
         [
@@ -140,12 +130,7 @@ def test_radius_derivative_equals_wall_velocity():
         frequency=frequencies,
     )
 
-    params = prepare_single_bubble_parameters(
-        material,
-        bubble,
-        field,
-        reference,
-    )
+    params = prepare_single_bubble_parameters(material, bubble, field, reference, 3)
 
     y = np.array(
         [
@@ -189,12 +174,7 @@ def test_environment_specific_forcing_amplitude():
         frequency=25e3,
     )
 
-    params = prepare_single_bubble_parameters(
-        material,
-        bubble,
-        field,
-        reference,
-    )
+    params = prepare_single_bubble_parameters(material, bubble, field, reference, len(amplitude))
 
     # All environments start from the same equilibrium state.
     y = np.array(
@@ -281,6 +261,7 @@ def test_rhs_satisfies_dimensional_keller_miksis_equation():
         bubble,
         field,
         reference,
+        3,
     )
 
     # ---------------------------------------------------------------

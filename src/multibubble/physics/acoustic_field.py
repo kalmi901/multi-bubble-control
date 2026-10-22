@@ -5,9 +5,6 @@ import numpy as np
 from ._batching import (
     as_direction_matrix,
     as_env_vector,
-    direction_environment_size,
-    environment_size,
-    resolve_num_envs,
 )
 from .common import FloatArray, MaterialProperties, Parameter
 
@@ -87,100 +84,8 @@ class AcousticFieldState:
     fluid_velocity: FloatArray
 
 
-def _infer_num_envs(
-    material: MaterialProperties,
-    field: AcousticField,
-    reference_frequency: Parameter,
-) -> int:
-    """Infer and validate the number of independent environments."""
-
-    candidates: list[tuple[str, int]] = []
-
-    environment_parameters = (
-        ("density", material.density),
-        ("sound_speed", material.sound_speed),
-        ("surface_tension", material.surface_tension),
-        ("dynamic_viscosity", material.dynamic_viscosity),
-        ("vapor_pressure", material.vapor_pressure),
-        ("ambient_pressure", material.ambient_pressure),
-        ("polytropic_exponent", material.polytropic_exponent),
-        ("reference_frequency", reference_frequency),
-    )
-
-    for name, value in environment_parameters:
-        size = environment_size(
-            value,
-            name=name,
-        )
-
-        if size is not None:
-            candidates.append((name, size))
-
-    for component_index, component in enumerate(field.components):
-        component_parameters = (
-            (
-                f"components[{component_index}].pressure_amplitude",
-                component.pressure_amplitude,
-            ),
-            (
-                f"components[{component_index}].frequency",
-                component.frequency,
-            ),
-            (
-                f"components[{component_index}].temporal_phase",
-                component.temporal_phase,
-            ),
-        )
-
-        for name, value in component_parameters:
-            size = environment_size(
-                value,
-                name=name,
-            )
-
-            if size is not None:
-                candidates.append((name, size))
-
-        if isinstance(component, PlaneStandingWave):
-            size = environment_size(
-                component.spatial_phase,
-                name=f"components[{component_index}].spatial_phase",
-            )
-
-            if size is not None:
-                candidates.append(
-                    (
-                        f"components[{component_index}].spatial_phase",
-                        size,
-                    )
-                )
-
-            direction_size = direction_environment_size(
-                component.direction,
-                name=f"components[{component_index}].direction",
-            )
-
-            if direction_size is not None:
-                candidates.append(
-                    (
-                        f"components[{component_index}].direction",
-                        direction_size,
-                    )
-                )
-
-        elif not isinstance(component, UniformHarmonic):
-            raise TypeError(f"Unsupported acoustic field component: {type(component).__name__}.")
-
-    return resolve_num_envs(
-        candidates,
-        context="Acoustic-field parameters",
-    )
-
-
 def prepare_acoustic_field(
-    material: MaterialProperties,
-    field: AcousticField,
-    reference_frequency: Parameter,
+    material: MaterialProperties, field: AcousticField, reference_frequency: Parameter, n_envs: int
 ) -> PreparedAcousticField:
     """Prepare a prescribed acoustic field for repeated evaluation.
 
@@ -191,12 +96,6 @@ def prepare_acoustic_field(
     Prepared arrays use shape ``(E, H)`` where E is the number of
     independent environments and H is the number of field components.
     """
-
-    n_envs = _infer_num_envs(
-        material,
-        field,
-        reference_frequency,
-    )
 
     density = as_env_vector(
         material.density,
@@ -368,25 +267,17 @@ def evaluate_acoustic_field(
     position: FloatArray,
     field: PreparedAcousticField,
 ) -> AcousticFieldState:
-    """Evaluate a prepared acoustic field.
+    """Evaluate a prepared prescribed acoustic field.
 
-    Parameters
-    ----------
-    t
-        Dimensionless time tau = f_ref * t_phys, shape (E,).
+    Supported position shapes
+    -------------------------
+    Single point per environment:
+        (E, D)
 
-    position
-        Dimensionless position x / L_ref, shape (E, 3).
+    Multiple points per environment:
+        (E, N, D)
 
-    field
-        Prepared acoustic field.
-
-    Returns
-    -------
-    AcousticFieldState
-        Pressure and physical pressure derivative in SI units,
-        together with physical pressure gradient and acoustic
-        liquid velocity.
+    where D is 1, 2, or 3.
     """
 
     tau = np.asarray(
@@ -406,53 +297,108 @@ def evaluate_acoustic_field(
             tau.reshape(1),
             (n_envs,),
         )
+
     elif tau.shape != (n_envs,):
         raise ValueError(f"t must be a scalar or have shape ({n_envs},), got {tau.shape}.")
 
-    if position.shape != (n_envs, 3):
-        raise ValueError(f"position must have shape ({n_envs}, 3), got {position.shape}.")
+    squeeze_point_axis = False
 
+    if position.ndim == 2:
+        if position.shape[0] != n_envs:
+            raise ValueError(f"position must have {n_envs} environments, got {position.shape}.")
+
+        if not 1 <= position.shape[1] <= 3:
+            raise ValueError("position spatial dimension must be 1, 2, or 3.")
+
+        # Canonical internal representation: (E, N, 3)
+        position = position[:, None, :]
+        squeeze_point_axis = True
+
+    elif position.ndim == 3:
+        if position.shape[0] != n_envs:
+            raise ValueError(f"position must have {n_envs} environments, got {position.shape}.")
+
+        if not 1 <= position.shape[2] <= 3:
+            raise ValueError("position spatial dimension must be 1, 2, or 3.")
+
+    else:
+        raise ValueError("position must have shape (E, D) or (E, N, D).")
+
+    spatial_dim = position.shape[-1]
+
+    if spatial_dim < 3:
+        pad_width = (
+            (0, 0),
+            (0, 0),
+            (0, 3 - spatial_dim),
+        )
+
+        position = np.pad(
+            position,
+            pad_width,
+            mode="constant",
+        )
+
+    # (E, H)
     temporal_angle = field.dimensionless_angular_frequency * tau[:, None] + field.temporal_phase
 
+    # (E, N, H)
     projected_position = np.einsum(
-        "ehd,ed->eh",
+        "ehd,end->enh",
         field.direction,
         position,
     )
 
-    spatial_angle = field.dimensionless_wave_number * projected_position + field.spatial_phase
+    spatial_angle = (
+        field.dimensionless_wave_number[:, None, :] * projected_position
+        + field.spatial_phase[:, None, :]
+    )
 
-    sin_t = np.sin(temporal_angle)
-    cos_t = np.cos(temporal_angle)
+    sin_t = np.sin(temporal_angle)[:, None, :]
+    cos_t = np.cos(temporal_angle)[:, None, :]
 
     sin_x = np.sin(spatial_angle)
     cos_x = np.cos(spatial_angle)
 
     pressure = np.sum(
-        field.pressure_amplitude * sin_t * cos_x,
-        axis=1,
+        field.pressure_amplitude[:, None, :] * sin_t * cos_x,
+        axis=-1,
     )
 
     pressure_time_derivative = np.sum(
-        field.pressure_amplitude * field.physical_angular_frequency * cos_t * cos_x,
-        axis=1,
+        field.pressure_amplitude[:, None, :]
+        * field.physical_angular_frequency[:, None, :]
+        * cos_t
+        * cos_x,
+        axis=-1,
     )
 
-    gradient_amplitude = -field.pressure_amplitude * field.physical_wave_number * sin_t * sin_x
+    gradient_amplitude = (
+        -field.pressure_amplitude[:, None, :]
+        * field.physical_wave_number[:, None, :]
+        * sin_t
+        * sin_x
+    )
 
     pressure_gradient = np.einsum(
-        "eh,ehd->ed",
+        "enh,ehd->end",
         gradient_amplitude,
         field.direction,
     )
 
-    velocity_amplitude = -field.fluid_velocity_amplitude * cos_t * sin_x
+    velocity_amplitude = -field.fluid_velocity_amplitude[:, None, :] * cos_t * sin_x
 
     fluid_velocity = np.einsum(
-        "eh,ehd->ed",
+        "enh,ehd->end",
         velocity_amplitude,
         field.direction,
     )
+
+    if squeeze_point_axis:
+        pressure = pressure[:, 0]
+        pressure_time_derivative = pressure_time_derivative[:, 0]
+        pressure_gradient = pressure_gradient[:, 0, :]
+        fluid_velocity = fluid_velocity[:, 0, :]
 
     return AcousticFieldState(
         pressure=pressure,

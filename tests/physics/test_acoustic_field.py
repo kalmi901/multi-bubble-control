@@ -25,11 +25,7 @@ def test_prepare_uniform_harmonic():
         )
     )
 
-    prepared = prepare_acoustic_field(
-        material,
-        field,
-        reference_frequency=25e3,
-    )
+    prepared = prepare_acoustic_field(material, field, reference_frequency=25e3, n_envs=1)
 
     assert prepared.pressure_amplitude.shape == (1, 1)
     assert prepared.direction.shape == (1, 1, 3)
@@ -86,11 +82,7 @@ def test_prepare_standing_wave_normalizes_direction():
         )
     )
 
-    prepared = prepare_acoustic_field(
-        material,
-        field,
-        reference_frequency=25e3,
-    )
+    prepared = prepare_acoustic_field(material, field, reference_frequency=25e3, n_envs=1)
 
     assert_allclose(
         prepared.direction[0, 0],
@@ -128,14 +120,10 @@ def test_prepare_rejects_zero_standing_wave_direction():
         ValueError,
         match="direction must be non-zero",
     ):
-        prepare_acoustic_field(
-            MaterialProperties(),
-            field,
-            reference_frequency=25e3,
-        )
+        prepare_acoustic_field(MaterialProperties(), field, reference_frequency=25e3, n_envs=1)
 
 
-def test_prepare_rejects_inconsistent_environment_counts():
+def test_prepare_rejects_wrong_environment_shape():
     field = AcousticField(
         components=(
             UniformHarmonic(
@@ -149,14 +137,12 @@ def test_prepare_rejects_inconsistent_environment_counts():
         )
     )
 
-    with pytest.raises(
-        ValueError,
-        match="inconsistent environment counts",
-    ):
+    with pytest.raises(ValueError, match="pressure_amplitude"):
         prepare_acoustic_field(
-            MaterialProperties(),
-            field,
+            material=MaterialProperties(),
+            field=field,
             reference_frequency=25e3,
+            n_envs=3,
         )
 
 
@@ -174,9 +160,7 @@ def test_uniform_harmonic_evaluation():
     )
 
     prepared = prepare_acoustic_field(
-        MaterialProperties(),
-        field,
-        reference_frequency=frequency,
+        MaterialProperties(), field, reference_frequency=frequency, n_envs=1
     )
 
     state = evaluate_acoustic_field(
@@ -229,11 +213,7 @@ def test_standing_wave_antinode_and_node():
         )
     )
 
-    prepared = prepare_acoustic_field(
-        material,
-        field,
-        reference_frequency=frequency,
-    )
+    prepared = prepare_acoustic_field(material, field, reference_frequency=frequency, n_envs=1)
 
     # tau = 1/4 -> sin(2*pi*tau) = 1
     tau = np.array([0.25])
@@ -307,11 +287,7 @@ def test_pressure_gradient_matches_finite_difference():
         )
     )
 
-    prepared = prepare_acoustic_field(
-        material,
-        field,
-        reference_frequency,
-    )
+    prepared = prepare_acoustic_field(material, field, reference_frequency, n_envs=1)
 
     tau = np.array([0.31])
 
@@ -377,9 +353,7 @@ def test_standing_wave_gradient_is_parallel_to_direction():
     )
 
     prepared = prepare_acoustic_field(
-        MaterialProperties(),
-        field,
-        reference_frequency=25e3,
+        MaterialProperties(), field, reference_frequency=25e3, n_envs=1
     )
 
     state = evaluate_acoustic_field(
@@ -427,6 +401,7 @@ def test_field_superposition_equals_sum_of_components():
             )
         ),
         reference_frequency,
+        n_envs=1,
     )
 
     prepared_a = prepare_acoustic_field(
@@ -435,6 +410,7 @@ def test_field_superposition_equals_sum_of_components():
             components=(component_a,),
         ),
         reference_frequency,
+        n_envs=1,
     )
 
     prepared_b = prepare_acoustic_field(
@@ -443,6 +419,7 @@ def test_field_superposition_equals_sum_of_components():
             components=(component_b,),
         ),
         reference_frequency,
+        n_envs=1,
     )
 
     tau = np.array([0.37])
@@ -497,6 +474,7 @@ def test_empty_acoustic_field_evaluates_to_zero():
             components=(),
         ),
         reference_frequency=np.array([25e3, 25e3]),
+        n_envs=2,
     )
 
     state = evaluate_acoustic_field(
@@ -512,32 +490,6 @@ def test_empty_acoustic_field_evaluates_to_zero():
     assert_allclose(state.pressure_time_derivative, 0.0)
     assert_allclose(state.pressure_gradient, 0.0)
     assert_allclose(state.fluid_velocity, 0.0)
-
-
-def test_prepare_infers_environments_from_material():
-    material = MaterialProperties(
-        dynamic_viscosity=np.array(
-            [0.001, 0.0011, 0.0012],
-            dtype=np.float64,
-        ),
-    )
-
-    field = AcousticField(
-        components=(
-            UniformHarmonic(
-                pressure_amplitude=1.0e5,
-                frequency=25e3,
-            ),
-        )
-    )
-
-    prepared = prepare_acoustic_field(
-        material,
-        field,
-        reference_frequency=25e3,
-    )
-
-    assert prepared.pressure_amplitude.shape == (3, 1)
 
 
 def test_prepare_supports_environment_specific_directions():
@@ -566,6 +518,7 @@ def test_prepare_supports_environment_specific_directions():
             25e3,
             dtype=np.float64,
         ),
+        n_envs=3,
     )
 
     assert_allclose(

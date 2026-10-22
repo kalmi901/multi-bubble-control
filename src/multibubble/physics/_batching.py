@@ -71,6 +71,40 @@ def as_env_vector(
     raise ValueError(f"{name} must be a scalar or have shape ({n_envs},), got {arr.shape}.")
 
 
+def as_env_parameter_column(
+    value: Parameter,
+    n_envs: int,
+    *,
+    name: str,
+) -> Parameter:
+    arr = np.asarray(value, dtype=np.float64)
+
+    if arr.ndim == 0:
+        return arr
+
+    if arr.shape == (n_envs,):
+        return arr[:, None]
+
+    raise ValueError(f"{name} must be a scalar or have shape ({n_envs},), got {arr.shape}.")
+
+
+def as_env_parameter(
+    value: Parameter,
+    n_envs: int,
+    *,
+    name: str,
+) -> Parameter:
+    arr = np.asarray(value, dtype=np.float64)
+
+    if arr.ndim == 0:
+        return arr
+
+    if arr.shape == (n_envs,):
+        return arr
+
+    raise ValueError(f"{name} must be a scalar or have shape ({n_envs},), got {arr.shape}.")
+
+
 def as_env_column(
     value: Parameter,
     n_envs: int,

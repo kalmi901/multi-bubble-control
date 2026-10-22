@@ -112,10 +112,7 @@ def main():
     reference = ReferenceScales(radius=equilibrium_radius, frequency=frequency)
 
     params = prepare_single_bubble_parameters(
-        material,
-        bubble,
-        field,
-        reference,
+        material, bubble, field, reference, args.num_amplitudes
     )
 
     num_envs = pressure_amplitudes.size

@@ -5,7 +5,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from multibubble.integrators import solve_rkck45
-from multibubble.physics import AcousticForcing, MaterialProperties
+from multibubble.physics import MaterialProperties
+from multibubble.physics.acoustic_field import AcousticField, UniformHarmonic
+from multibubble.physics.common import ReferenceScales
 from multibubble.physics.coupled_bubbles import (
     CoupledBubblesParameters,
     coupled_bubbles_rhs,
@@ -102,16 +104,17 @@ def main():
         * 1e5
     )
 
-    forcing = AcousticForcing(
-        pressure_amplitude=pressure_amplitudes,
-        frequency=frequency,
+    field = AcousticField(
+        components=(UniformHarmonic(pressure_amplitude=pressure_amplitudes, frequency=frequency),)
     )
 
-    reference_radius = min(bubbles.equilibrium_radius)
+    reference = ReferenceScales(radius=min(bubbles.equilibrium_radius), frequency=frequency)
 
-    params = prepare_coupled_bubbles_parameters(material, bubbles, forcing, reference_radius)
+    params = prepare_coupled_bubbles_parameters(
+        material, bubbles, field, reference, args.num_amplitudes
+    )
 
-    radius_ratio = bubbles.equilibrium_radius / reference_radius
+    radius_ratio = bubbles.equilibrium_radius / reference.radius
 
     num_envs = pressure_amplitudes.size
 
@@ -236,7 +239,7 @@ def main():
             "num_amplitudes": args.num_amplitudes,
             "transient_cycles": args.transient_cycles,
             "sample_cycles": args.sample_cycles,
-            "reference_radius_micron": reference_radius * 1e6,
+            "reference_radius_micron": reference.radius * 1e6,
             "solver": {
                 "name": "RKCK45",
                 "rtol": 1e-8,

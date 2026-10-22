@@ -43,12 +43,7 @@ def _make_driven_case():
 
     reference = ReferenceScales(radius=bubble.equilibrium_radius, frequency=25e3)
 
-    params = prepare_single_bubble_parameters(
-        material,
-        bubble,
-        field,
-        reference,
-    )
+    params = prepare_single_bubble_parameters(material, bubble, field, reference, 1)
 
     y0 = np.array(
         [[1.0, 0.0]],
@@ -156,12 +151,7 @@ def _make_legacy_case(reference, case_index):
         radius=reference_radius, frequency=float(reference["frequency_hz"][case_index])
     )
 
-    params = prepare_single_bubble_parameters(
-        material,
-        bubble,
-        field,
-        reference,
-    )
+    params = prepare_single_bubble_parameters(material, bubble, field, reference, 1)
 
     y0 = np.array(
         [
@@ -194,12 +184,7 @@ def test_unforced_equilibrium_remains_equilibrium_when_integrated():
 
     reference = ReferenceScales(radius=bubble.equilibrium_radius, frequency=25e3)
 
-    params = prepare_single_bubble_parameters(
-        material,
-        bubble,
-        field,
-        reference,
-    )
+    params = prepare_single_bubble_parameters(material, bubble, field, reference, 1)
 
     y0 = np.array(
         [[1.0, 0.0]],
@@ -301,12 +286,7 @@ def test_batched_integration_matches_independent_simulations():
 
     reference = ReferenceScales(radius=100e-6, frequency=frequencies)
 
-    batch_params = prepare_single_bubble_parameters(
-        material,
-        bubble,
-        field,
-        reference,
-    )
+    batch_params = prepare_single_bubble_parameters(material, bubble, field, reference, 3)
 
     y0_batch = np.column_stack(
         (
@@ -348,10 +328,7 @@ def test_batched_integration_matches_independent_simulations():
         )
 
         params_independent = prepare_single_bubble_parameters(
-            material,
-            bubble_independent,
-            field_independent,
-            reference,
+            material, bubble_independent, field_independent, reference, 1
         )
 
         y0 = np.array(

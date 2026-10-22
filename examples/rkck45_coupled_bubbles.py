@@ -4,7 +4,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from multibubble.integrators import solve_rkck45
-from multibubble.physics import AcousticForcing, MaterialProperties
+from multibubble.physics import MaterialProperties
+from multibubble.physics.acoustic_field import AcousticField, UniformHarmonic
+from multibubble.physics.common import ReferenceScales
 from multibubble.physics.coupled_bubbles import (
     CoupledBubblesParameters,
     coupled_bubbles_rhs,
@@ -63,11 +65,14 @@ def main():
         position=np.asarray(args.positions, dtype=np.float64)[..., np.newaxis],
     )
 
-    forcing = AcousticForcing(
-        pressure_amplitude=args.amplitude * 1e5, frequency=args.frequency * 1e3
+    frequency = args.frequency * 1e3
+    reference_radius = (args.ref_radius if args.ref_radius is not None else min(args.radii)) * 1e-6
+
+    field = AcousticField(
+        components=(UniformHarmonic(pressure_amplitude=args.amplitude * 1e5, frequency=frequency),)
     )
 
-    reference_radius = (args.ref_radius if args.ref_radius is not None else min(args.radii)) * 1e-6
+    reference = ReferenceScales(radius=reference_radius, frequency=frequency)
 
     radius_ratio = bubbles.equilibrium_radius / reference_radius
 
@@ -79,7 +84,7 @@ def main():
         axis=-1,
     )[None, ...]
 
-    params = prepare_coupled_bubbles_parameters(material, bubbles, forcing, reference_radius)
+    params = prepare_coupled_bubbles_parameters(material, bubbles, field, reference, 1)
 
     _, _, info = solve_rkck45(
         coupled_bubbles_rhs,
@@ -112,7 +117,7 @@ def main():
     print("R_min / R0 :", np.array2string(r_min, precision=6))
     print("R_max / R0 :", np.array2string(r_max, precision=6))
 
-    velocity_scale = reference_radius * forcing.frequency
+    velocity_scale = reference_radius * frequency
     wall_velocity = y[:, :, 1] * velocity_scale  # (K, N)
 
     sound_speed = np.asarray(material.sound_speed, dtype=np.float64)

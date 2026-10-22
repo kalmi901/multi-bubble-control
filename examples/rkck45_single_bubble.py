@@ -64,7 +64,7 @@ def main():
 
     y0 = np.array([[1.0 * bubble.equilibrium_radius / reference_radius, 0.0]])  # Initial Conditions
 
-    params = prepare_single_bubble_parameters(material, bubble, field, reference)
+    params = prepare_single_bubble_parameters(material, bubble, field, reference, 1)
 
     _, _, info = solve_rkck45(
         single_bubble_rhs,

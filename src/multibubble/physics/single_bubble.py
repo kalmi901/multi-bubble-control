@@ -2,6 +2,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from ._batching import as_env_parameter, as_env_vector
 from .acoustic_field import (
     AcousticField,
     PreparedAcousticField,
@@ -18,10 +19,12 @@ class BubbleParameters:
 
 @dataclass(frozen=True)
 class PreparedSingleBubbleParameters:
+    # Bubble-scoped: (E, )
     equilibrium_radius_ratio: Parameter
-
     gas_pressure_coefficient: Parameter
     gas_pressure_velocity_coefficient: Parameter
+
+    # Shared scalar or environment-scoped: (E, )
     static_pressure_coefficient: Parameter
     surface_tension_coefficient: Parameter
     viscous_coefficient: Parameter
@@ -34,8 +37,9 @@ class PreparedSingleBubbleParameters:
 
     acoustic_field: PreparedAcousticField
 
-    reference_radius: FloatArray
-    reference_frequency: FloatArray
+    # Shared scalar or environment-scoped: (E, )
+    reference_radius: Parameter
+    reference_frequency: Parameter
 
 
 def prepare_single_bubble_parameters(
@@ -43,27 +47,86 @@ def prepare_single_bubble_parameters(
     bubble: BubbleParameters,
     field: AcousticField,
     reference: ReferenceScales,
+    n_envs: int,
 ) -> PreparedSingleBubbleParameters:
 
-    rho = np.asarray(material.density, dtype=np.float64)
+    if n_envs < 1:
+        raise ValueError("n_envs must be positive.")
 
-    c = np.asarray(material.sound_speed, dtype=np.float64)
+    equilibrium_radius_input = np.asarray(
+        bubble.equilibrium_radius,
+        dtype=np.float64,
+    )
 
-    sigma = np.asarray(material.surface_tension, dtype=np.float64)
+    if equilibrium_radius_input.ndim not in (0, 1):
+        raise ValueError("equilibrium_radius must be a scalar or have shape (n_envs,).")
 
-    mu = np.asarray(material.dynamic_viscosity, dtype=np.float64)
+    # ---------------------------------------------------------
+    # Bubble-scoped parameters: (E, 1)
+    # ---------------------------------------------------------
+    r0 = as_env_vector(
+        equilibrium_radius_input,
+        n_envs,
+        name="equilibrium_radius",
+    )
 
-    p_vapor = np.asarray(material.vapor_pressure, dtype=np.float64)
+    # ---------------------------------------------------------
+    # Shared scalar OR environment-scoped (E, 1)
+    # ---------------------------------------------------------
 
-    p_ambient = np.asarray(material.ambient_pressure, dtype=np.float64)
+    rho = as_env_parameter(
+        material.density,
+        n_envs,
+        name="density",
+    )
 
-    gamma = np.asarray(material.polytropic_exponent, dtype=np.float64)
+    c = as_env_parameter(
+        material.sound_speed,
+        n_envs,
+        name="sound_speed",
+    )
 
-    r0 = np.asarray(bubble.equilibrium_radius, dtype=np.float64)
+    sigma = as_env_parameter(
+        material.surface_tension,
+        n_envs,
+        name="surface_tension",
+    )
 
-    r_ref = np.asarray(reference.radius, dtype=np.float64)
+    mu = as_env_parameter(
+        material.dynamic_viscosity,
+        n_envs,
+        name="dynamic_viscosity",
+    )
 
-    f_ref = np.asarray(reference.frequency, dtype=np.float64)
+    p_vapor = as_env_parameter(
+        material.vapor_pressure,
+        n_envs,
+        name="vapor_pressure",
+    )
+
+    p_ambient = as_env_parameter(
+        material.ambient_pressure,
+        n_envs,
+        name="ambient_pressure",
+    )
+
+    gamma = as_env_parameter(
+        material.polytropic_exponent,
+        n_envs,
+        name="polytropic_exponent",
+    )
+
+    r_ref = as_env_parameter(
+        reference.radius,
+        n_envs,
+        name="reference_radius",
+    )
+
+    f_ref = as_env_parameter(
+        reference.frequency,
+        n_envs,
+        name="reference_frequency",
+    )
 
     if np.any(r_ref <= 0.0):
         raise ValueError("reference radius must be positive.")
@@ -97,9 +160,7 @@ def prepare_single_bubble_parameters(
     # ---------------------------------------------------------
 
     acoustic_field = prepare_acoustic_field(
-        material,
-        field,
-        reference_frequency=f_ref,
+        material, field, reference_frequency=f_ref, n_envs=n_envs
     )
 
     return PreparedSingleBubbleParameters(

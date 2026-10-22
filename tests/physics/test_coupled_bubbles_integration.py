@@ -4,7 +4,7 @@ import numpy as np
 from numpy.testing import assert_allclose
 
 from multibubble.integrators import solve_rkck45
-from multibubble.physics import AcousticForcing, MaterialProperties
+from multibubble.physics import MaterialProperties
 from multibubble.physics.acoustic_field import AcousticField, UniformHarmonic
 from multibubble.physics.common import ReferenceScales
 from multibubble.physics.coupled_bubbles import (
@@ -71,11 +71,6 @@ def test_zero_coupling_matches_independent_single_bubbles():
 
     reference_radius = 50e-6
 
-    forcing = AcousticForcing(
-        pressure_amplitude=0.3e5,
-        frequency=25e3,
-    )
-
     field = AcousticField(components=(UniformHarmonic(pressure_amplitude=0.3e5, frequency=25e3),))
 
     reference = ReferenceScales(radius=reference_radius, frequency=field.components[0].frequency)
@@ -92,12 +87,7 @@ def test_zero_coupling_matches_independent_single_bubbles():
         ),
     )
 
-    params = prepare_coupled_bubbles_parameters(
-        material,
-        bubbles,
-        forcing,
-        reference_radius,
-    )
+    params = prepare_coupled_bubbles_parameters(material, bubbles, field, reference, 1)
 
     params = replace(
         params,
@@ -125,6 +115,7 @@ def test_zero_coupling_matches_independent_single_bubbles():
             ),
             field,
             reference,
+            1,
         )
 
         y0_single = np.array(
@@ -162,17 +153,11 @@ def test_identical_two_bubbles_remain_symmetric():
         ),
     )
 
-    forcing = AcousticForcing(
-        pressure_amplitude=0.4e5,
-        frequency=25e3,
-    )
+    field = AcousticField(components=(UniformHarmonic(pressure_amplitude=0.4e5, frequency=25e3),))
 
-    params = prepare_coupled_bubbles_parameters(
-        material,
-        bubbles,
-        forcing,
-        50e-6,
-    )
+    reference = ReferenceScales(radius=50e-6, frequency=field.components[0].frequency)
+
+    params = prepare_coupled_bubbles_parameters(material, bubbles, field, reference, 1)
 
     y0 = np.stack(
         (
@@ -215,13 +200,11 @@ def test_permutation_equivariance():
         dtype=np.float64,
     )
 
-    forcing = AcousticForcing(
-        pressure_amplitude=0.35e5,
-        frequency=25e3,
-        phase=0.2,
+    field = AcousticField(
+        components=(UniformHarmonic(pressure_amplitude=0.35e5, frequency=25e3, temporal_phase=0.2),)
     )
 
-    reference_radius = 50e-6
+    reference = ReferenceScales(radius=50e-6, frequency=field.components[0].frequency)
 
     # ---------------------------------------------------------
     # Original ordering
@@ -232,12 +215,7 @@ def test_permutation_equivariance():
         position=position,
     )
 
-    params = prepare_coupled_bubbles_parameters(
-        material,
-        bubbles,
-        forcing,
-        reference_radius,
-    )
+    params = prepare_coupled_bubbles_parameters(material, bubbles, field, reference, 1)
 
     y0 = np.stack(
         (
@@ -270,10 +248,7 @@ def test_permutation_equivariance():
     )
 
     permuted_params = prepare_coupled_bubbles_parameters(
-        material,
-        permuted_bubbles,
-        forcing,
-        reference_radius,
+        material, permuted_bubbles, field, reference, 1
     )
 
     y0_permuted = np.stack(
@@ -317,20 +292,15 @@ def test_solution_converges_with_tighter_rkck45_tolerances():
         ),
     )
 
-    forcing = AcousticForcing(
-        pressure_amplitude=0.30e5,
-        frequency=25e3,
-        phase=0.15,
+    field = AcousticField(
+        components=(
+            UniformHarmonic(pressure_amplitude=0.30e5, frequency=25e3, temporal_phase=0.15),
+        )
     )
 
-    reference_radius = 50e-6
+    reference = ReferenceScales(radius=50e-6, frequency=field.components[0].frequency)
 
-    params = prepare_coupled_bubbles_parameters(
-        material,
-        bubbles,
-        forcing,
-        reference_radius,
-    )
+    params = prepare_coupled_bubbles_parameters(material, bubbles, field, reference, 1)
 
     y0 = np.stack(
         (
@@ -446,18 +416,17 @@ def test_batched_environments_match_independent_coupled_integrations():
         position=position,
     )
 
-    forcing = AcousticForcing(
-        pressure_amplitude=pressure_amplitude,
-        frequency=frequency,
-        phase=phase,
+    field = AcousticField(
+        components=(
+            UniformHarmonic(
+                pressure_amplitude=pressure_amplitude, frequency=frequency, temporal_phase=phase
+            ),
+        )
     )
 
-    params = prepare_coupled_bubbles_parameters(
-        material,
-        bubbles,
-        forcing,
-        reference_radius,
-    )
+    reference = ReferenceScales(radius=reference_radius, frequency=frequency)
+
+    params = prepare_coupled_bubbles_parameters(material, bubbles, field, reference, 3)
 
     y0 = np.stack(
         (
@@ -481,17 +450,22 @@ def test_batched_environments_match_independent_coupled_integrations():
             position=position[env],
         )
 
-        independent_forcing = AcousticForcing(
-            pressure_amplitude=pressure_amplitude[env],
-            frequency=frequency[env],
-            phase=phase[env],
+        independent_field = AcousticField(
+            components=(
+                UniformHarmonic(
+                    pressure_amplitude=pressure_amplitude[env],
+                    frequency=frequency[env],
+                    temporal_phase=phase[env],
+                ),
+            )
+        )
+
+        independet_reference = ReferenceScales(
+            radius=reference_radius[env], frequency=frequency[env]
         )
 
         independent_params = prepare_coupled_bubbles_parameters(
-            material,
-            independent_bubbles,
-            independent_forcing,
-            reference_radius[env],
+            material, independent_bubbles, independent_field, independet_reference, 1
         )
 
         y0_independent = np.stack(
