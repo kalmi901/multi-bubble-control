@@ -1,3 +1,12 @@
+from .acoustic_field import (
+    AcousticField,
+    AcousticFieldState,
+    PlaneStandingWave,
+    PreparedAcousticField,
+    UniformHarmonic,
+    evaluate_acoustic_field,
+    prepare_acoustic_field,
+)
 from .common import (
     AcousticForcing,
     MaterialProperties,
@@ -16,13 +25,20 @@ from .single_bubble import (
 )
 
 __all__ = [
+    "AcousticField",
+    "AcousticFieldState",
     "AcousticForcing",
     "BubbleParameters",
     "CoupledBubblesParameters",
     "MaterialProperties",
+    "PlaneStandingWave",
+    "PreparedAcousticField",
     "PreparedCoupledBubblesParameters",
     "PreparedSingleBubbleParameters",
+    "UniformHarmonic",
     "coupled_bubbles_rhs",
+    "evaluate_acoustic_field",
+    "prepare_acoustic_field",
     "prepare_coupled_bubbles_parameters",
     "prepare_single_bubble_parameters",
     "single_bubble_rhs",
