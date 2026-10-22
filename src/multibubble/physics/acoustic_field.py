@@ -67,15 +67,26 @@ class PreparedAcousticField:
 class AcousticFieldState:
     """Evaluated prescribed acoustic field.
 
-    Shapes for single-bubble evaluation:
+    Supported input shapes:
 
-    t        : (E,)
-    position : (E, 3)
+    t        : scalar or (E,)
+    position : (E, D) or (E, N, D), with D = 1, 2, or 3
+
+    For position shape (E, D):
 
     pressure                 : (E,)
     pressure_time_derivative : (E,)
     pressure_gradient        : (E, 3)
     fluid_velocity           : (E, 3)
+
+    For position shape (E, N, D):
+
+    pressure                 : (E, N)
+    pressure_time_derivative : (E, N)
+    pressure_gradient        : (E, N, 3)
+    fluid_velocity           : (E, N, 3)
+
+    Missing spatial dimensions are treated as zero.
     """
 
     pressure: FloatArray
@@ -96,6 +107,9 @@ def prepare_acoustic_field(
     Prepared arrays use shape ``(E, H)`` where E is the number of
     independent environments and H is the number of field components.
     """
+
+    if n_envs < 1:
+        raise ValueError("n_envs must be positive.")
 
     density = as_env_vector(
         material.density,

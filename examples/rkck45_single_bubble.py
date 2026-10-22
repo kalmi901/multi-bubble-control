@@ -87,8 +87,8 @@ def main():
     print(f"Rejected steps : {info['n_rejected'][0]}")
     velocity_scale = reference_radius * reference.frequency
 
-    radius_min_over_equilibrium = np.min(y[:, 0]) / params.equilibrium_radius_ratio
-    radius_max_over_equilibrium = np.max(y[:, 0]) / params.equilibrium_radius_ratio
+    radius_min_over_equilibrium = np.min(y[:, 0]) / params.equilibrium_radius_ratio[0]
+    radius_max_over_equilibrium = np.max(y[:, 0]) / params.equilibrium_radius_ratio[0]
 
     print(f"R_min / R0 : {radius_min_over_equilibrium:.6f}")
     print(f"R_max / R0 : {radius_max_over_equilibrium:.6f}")

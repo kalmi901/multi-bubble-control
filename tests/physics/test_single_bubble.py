@@ -252,7 +252,7 @@ def test_rhs_satisfies_dimensional_keller_miksis_equation():
     # Deliberately choose R_ref != R0 so that the test also checks
     # the radius/velocity/acceleration scaling.
     reference = ReferenceScales(
-        radius=80 - 6,
+        radius=80e-6,
         frequency=25e3,
     )
 

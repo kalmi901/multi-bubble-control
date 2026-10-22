@@ -20,9 +20,9 @@ class BubbleParameters:
 @dataclass(frozen=True)
 class PreparedSingleBubbleParameters:
     # Bubble-scoped: (E, )
-    equilibrium_radius_ratio: Parameter
-    gas_pressure_coefficient: Parameter
-    gas_pressure_velocity_coefficient: Parameter
+    equilibrium_radius_ratio: FloatArray
+    gas_pressure_coefficient: FloatArray
+    gas_pressure_velocity_coefficient: FloatArray
 
     # Shared scalar or environment-scoped: (E, )
     static_pressure_coefficient: Parameter
@@ -62,7 +62,7 @@ def prepare_single_bubble_parameters(
         raise ValueError("equilibrium_radius must be a scalar or have shape (n_envs,).")
 
     # ---------------------------------------------------------
-    # Bubble-scoped parameters: (E, 1)
+    # Bubble-scoped parameters: (E,)
     # ---------------------------------------------------------
     r0 = as_env_vector(
         equilibrium_radius_input,
@@ -71,7 +71,7 @@ def prepare_single_bubble_parameters(
     )
 
     # ---------------------------------------------------------
-    # Shared scalar OR environment-scoped (E, 1)
+    # Shared scalar OR environment-scoped (E,)
     # ---------------------------------------------------------
 
     rho = as_env_parameter(

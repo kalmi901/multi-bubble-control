@@ -2,7 +2,12 @@ import numpy as np
 from numpy.testing import assert_allclose
 
 from multibubble.physics import MaterialProperties
-from multibubble.physics.acoustic_field import AcousticField, UniformHarmonic
+from multibubble.physics.acoustic_field import (
+    AcousticField,
+    PlaneStandingWave,
+    UniformHarmonic,
+    evaluate_acoustic_field,
+)
 from multibubble.physics.common import ReferenceScales
 from multibubble.physics.coupled_bubbles import (
     CoupledBubblesParameters,
@@ -533,4 +538,77 @@ def test_radial_coupling_excludes_self_interaction():
         expected_k01,
         rtol=1e-14,
         atol=0.0,
+    )
+
+
+def test_coupled_bubbles_evaluate_spatial_acoustic_field_at_each_bubble():
+    material = MaterialProperties()
+
+    bubbles = CoupledBubblesParameters(
+        equilibrium_radius=np.array(
+            [50e-6, 50e-6],
+            dtype=np.float64,
+        ),
+        position=np.array(
+            [
+                [0.0],  # pressure antinode
+                [0.25],  # pressure node for f = f_ref
+            ],
+            dtype=np.float64,
+        ),
+    )
+
+    pressure_amplitude = 1.0e5
+    frequency = 25e3
+
+    field = AcousticField(
+        components=(
+            PlaneStandingWave(
+                pressure_amplitude=pressure_amplitude,
+                frequency=frequency,
+                direction=np.array([1.0, 0.0, 0.0]),
+            ),
+        )
+    )
+
+    reference = ReferenceScales(
+        radius=50e-6,
+        frequency=frequency,
+    )
+
+    params = prepare_coupled_bubbles_parameters(
+        material,
+        bubbles,
+        field,
+        reference,
+        n_envs=1,
+    )
+
+    # tau = 1/4:
+    # sin(2*pi*tau) = 1
+    #
+    # Bubble 0:
+    # x* = 0 -> cos(k*x) = 1 -> p = P_A
+    #
+    # Bubble 1:
+    # x* = 1/4 -> cos(pi/2) = 0 -> p = 0
+    field_state = evaluate_acoustic_field(
+        t=np.array([0.25]),
+        position=params.position,
+        field=params.acoustic_field,
+    )
+
+    assert field_state.pressure.shape == (1, 2)
+
+    assert_allclose(
+        field_state.pressure[0, 0],
+        pressure_amplitude,
+        rtol=1e-14,
+        atol=1e-9,
+    )
+
+    assert_allclose(
+        field_state.pressure[0, 1],
+        0.0,
+        atol=1e-9,
     )
