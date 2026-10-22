@@ -2,6 +2,13 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from ._batching import (
+    as_direction_matrix,
+    as_env_vector,
+    direction_environment_size,
+    environment_size,
+    resolve_num_envs,
+)
 from .common import FloatArray, MaterialProperties, Parameter
 
 
@@ -80,48 +87,6 @@ class AcousticFieldState:
     fluid_velocity: FloatArray
 
 
-def _environment_size(
-    value: Parameter,
-    *,
-    name: str,
-) -> int | None:
-    """Return the environment count implied by a scalar or 1D parameter."""
-
-    arr = np.asarray(
-        value,
-        dtype=np.float64,
-    )
-
-    if arr.ndim == 0:
-        return None
-
-    if arr.ndim == 1:
-        return arr.shape[0]
-
-    raise ValueError(f"{name} must be a scalar or have shape (n_envs,), got {arr.shape}.")
-
-
-def _direction_environment_size(
-    value: FloatArray,
-    *,
-    name: str,
-) -> int | None:
-    """Return the environment count implied by a direction array."""
-
-    arr = np.asarray(
-        value,
-        dtype=np.float64,
-    )
-
-    if arr.shape == (3,):
-        return None
-
-    if arr.ndim == 2 and arr.shape[1] == 3:
-        return arr.shape[0]
-
-    raise ValueError(f"{name} must have shape (3,) or (n_envs, 3), got {arr.shape}.")
-
-
 def _infer_num_envs(
     material: MaterialProperties,
     field: AcousticField,
@@ -134,11 +99,16 @@ def _infer_num_envs(
     environment_parameters = (
         ("density", material.density),
         ("sound_speed", material.sound_speed),
+        ("surface_tension", material.surface_tension),
+        ("dynamic_viscosity", material.dynamic_viscosity),
+        ("vapor_pressure", material.vapor_pressure),
+        ("ambient_pressure", material.ambient_pressure),
+        ("polytropic_exponent", material.polytropic_exponent),
         ("reference_frequency", reference_frequency),
     )
 
     for name, value in environment_parameters:
-        size = _environment_size(
+        size = environment_size(
             value,
             name=name,
         )
@@ -163,7 +133,7 @@ def _infer_num_envs(
         )
 
         for name, value in component_parameters:
-            size = _environment_size(
+            size = environment_size(
                 value,
                 name=name,
             )
@@ -172,7 +142,7 @@ def _infer_num_envs(
                 candidates.append((name, size))
 
         if isinstance(component, PlaneStandingWave):
-            size = _environment_size(
+            size = environment_size(
                 component.spatial_phase,
                 name=f"components[{component_index}].spatial_phase",
             )
@@ -185,7 +155,7 @@ def _infer_num_envs(
                     )
                 )
 
-            direction_size = _direction_environment_size(
+            direction_size = direction_environment_size(
                 component.direction,
                 name=f"components[{component_index}].direction",
             )
@@ -201,71 +171,10 @@ def _infer_num_envs(
         elif not isinstance(component, UniformHarmonic):
             raise TypeError(f"Unsupported acoustic field component: {type(component).__name__}.")
 
-    if not candidates:
-        return 1
-
-    n_envs = candidates[0][1]
-
-    inconsistent = [(name, size) for name, size in candidates if size != n_envs]
-
-    if inconsistent:
-        details = ", ".join(f"{name}={size}" for name, size in candidates)
-
-        raise ValueError(
-            f"Acoustic-field parameters have inconsistent environment counts: {details}."
-        )
-
-    return n_envs
-
-
-def _as_env_vector(
-    value: Parameter,
-    n_envs: int,
-    *,
-    name: str,
-) -> FloatArray:
-    """Canonicalize an environment parameter to shape (E,)."""
-
-    arr = np.asarray(
-        value,
-        dtype=np.float64,
+    return resolve_num_envs(
+        candidates,
+        context="Acoustic-field parameters",
     )
-
-    if arr.ndim == 0:
-        return np.broadcast_to(
-            arr.reshape(1),
-            (n_envs,),
-        )
-
-    if arr.shape == (n_envs,):
-        return arr
-
-    raise ValueError(f"{name} must be a scalar or have shape ({n_envs},), got {arr.shape}.")
-
-
-def _as_direction_matrix(
-    value: FloatArray,
-    n_envs: int,
-    *,
-    name: str,
-) -> FloatArray:
-    """Canonicalize a direction vector to shape (E, 3)."""
-
-    arr = np.asarray(
-        value,
-        dtype=np.float64,
-    )
-
-    if arr.shape == (3,):
-        return np.broadcast_to(
-            arr[None, :],
-            (n_envs, 3),
-        )
-
-    if arr.shape == (n_envs, 3):
-        return arr
-
-    raise ValueError(f"{name} must have shape (3,) or ({n_envs}, 3), got {arr.shape}.")
 
 
 def prepare_acoustic_field(
@@ -289,19 +198,19 @@ def prepare_acoustic_field(
         reference_frequency,
     )
 
-    density = _as_env_vector(
+    density = as_env_vector(
         material.density,
         n_envs,
         name="density",
     )
 
-    sound_speed = _as_env_vector(
+    sound_speed = as_env_vector(
         material.sound_speed,
         n_envs,
         name="sound_speed",
     )
 
-    f_ref = _as_env_vector(
+    f_ref = as_env_vector(
         reference_frequency,
         n_envs,
         name="reference_frequency",
@@ -366,19 +275,19 @@ def prepare_acoustic_field(
     )
 
     for component_index, component in enumerate(field.components):
-        amplitude = _as_env_vector(
+        amplitude = as_env_vector(
             component.pressure_amplitude,
             n_envs,
             name=f"components[{component_index}].pressure_amplitude",
         )
 
-        frequency = _as_env_vector(
+        frequency = as_env_vector(
             component.frequency,
             n_envs,
             name=f"components[{component_index}].frequency",
         )
 
-        phase = _as_env_vector(
+        phase = as_env_vector(
             component.temporal_phase,
             n_envs,
             name=f"components[{component_index}].temporal_phase",
@@ -407,13 +316,13 @@ def prepare_acoustic_field(
             continue
 
         if isinstance(component, PlaneStandingWave):
-            spatial_phase[:, component_index] = _as_env_vector(
+            spatial_phase[:, component_index] = as_env_vector(
                 component.spatial_phase,
                 n_envs,
                 name=f"components[{component_index}].spatial_phase",
             )
 
-            component_direction = _as_direction_matrix(
+            component_direction = as_direction_matrix(
                 component.direction,
                 n_envs,
                 name=f"components[{component_index}].direction",

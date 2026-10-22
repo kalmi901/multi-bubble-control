@@ -2,6 +2,13 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from ._batching import (
+    as_bubble_matrix,
+    as_env_column,
+    as_position_tensor,
+    environment_size,
+    resolve_num_envs,
+)
 from .common import AcousticForcing, FloatArray, MaterialProperties, Parameter
 
 
@@ -38,28 +45,6 @@ class PreparedCoupledBubblesParameters:
     position: FloatArray
 
     radial_coupling: FloatArray  # (E, N, N)
-
-
-def _environment_size(
-    value: Parameter,
-    *,
-    name: str,
-) -> int | None:
-    """Return environment count for an environment-scoped input.
-
-    Scalars are shared by all environments and therefore do not
-    determine the environment count.
-    """
-
-    arr = np.asarray(value, dtype=np.float64)
-
-    if arr.ndim == 0:
-        return None
-
-    if arr.ndim == 1:
-        return arr.shape[0]
-
-    raise ValueError(f"{name} must be a scalar or have shape (n_envs,), got {arr.shape}.")
 
 
 def _infer_num_envs(
@@ -115,7 +100,7 @@ def _infer_num_envs(
     )
 
     for name, value in environment_parameters:
-        size = _environment_size(
+        size = environment_size(
             value,
             name=name,
         )
@@ -123,119 +108,9 @@ def _infer_num_envs(
         if size is not None:
             candidates.append((name, size))
 
-    if not candidates:
-        return 1
-
-    n_envs = candidates[0][1]
-
-    inconsistent = [(name, size) for name, size in candidates if size != n_envs]
-
-    if inconsistent:
-        details = ", ".join(f"{name}={size}" for name, size in candidates)
-
-        raise ValueError(
-            f"Environment-specific parameters have inconsistent environment counts: {details}."
-        )
-
-    return n_envs
-
-
-def _as_env_column(
-    value: Parameter,
-    n_envs: int,
-    *,
-    name: str,
-) -> FloatArray:
-    """Canonicalize an environment parameter to shape (E, 1)."""
-
-    arr = np.asarray(
-        value,
-        dtype=np.float64,
-    )
-
-    if arr.ndim == 0:
-        return np.broadcast_to(
-            arr.reshape(1, 1),
-            (n_envs, 1),
-        )
-
-    if arr.shape == (n_envs,):
-        return arr[:, None]
-
-    raise ValueError(f"{name} must be a scalar or have shape ({n_envs},), got {arr.shape}.")
-
-
-def _as_bubble_matrix(
-    value: FloatArray,
-    n_envs: int,
-    n_bubbles: int,
-    *,
-    name: str,
-) -> FloatArray:
-    """Canonicalize a bubble parameter to shape (E, N)."""
-
-    arr = np.asarray(
-        value,
-        dtype=np.float64,
-    )
-
-    if arr.shape == (n_bubbles,):
-        return np.broadcast_to(
-            arr[None, :],
-            (n_envs, n_bubbles),
-        )
-
-    if arr.shape == (n_envs, n_bubbles):
-        return arr
-
-    raise ValueError(
-        f"{name} must have shape ({n_bubbles},) or ({n_envs}, {n_bubbles}), got {arr.shape}."
-    )
-
-
-def _as_position_tensor(
-    value: FloatArray,
-    n_envs: int,
-    n_bubbles: int,
-) -> FloatArray:
-    """Canonicalize fixed bubble positions to shape (E, N, D)."""
-
-    arr = np.asarray(
-        value,
-        dtype=np.float64,
-    )
-
-    if arr.ndim == 2:
-        if arr.shape[0] != n_bubbles:
-            raise ValueError(
-                "Shared position array must have shape "
-                f"({n_bubbles}, spatial_dim), got {arr.shape}."
-            )
-
-        return np.broadcast_to(
-            arr[None, ...],
-            (n_envs, *arr.shape),
-        )
-
-    if arr.ndim == 3:
-        if arr.shape[0] != n_envs:
-            raise ValueError(
-                "Environment-specific position array must have "
-                f"{n_envs} environments, got {arr.shape[0]}."
-            )
-
-        if arr.shape[1] != n_bubbles:
-            raise ValueError(
-                "Environment-specific position array must have "
-                f"{n_bubbles} bubbles, got {arr.shape[1]}."
-            )
-
-        return arr
-
-    raise ValueError(
-        "position must have shape (n_bubbles, spatial_dim) "
-        "or (n_envs, n_bubbles, spatial_dim), "
-        f"got {arr.shape}."
+    return resolve_num_envs(
+        candidates,
+        context="Environment-specific parameters",
     )
 
 
@@ -311,14 +186,14 @@ def prepare_coupled_bubbles_parameters(
     # Canonical bubble-scoped parameters: (E, N)
     # ---------------------------------------------------------
 
-    r0 = _as_bubble_matrix(
+    r0 = as_bubble_matrix(
         equilibrium_radius_input,
         n_envs,
         n_bubbles,
         name="equilibrium_radius",
     )
 
-    position = _as_position_tensor(
+    position = as_position_tensor(
         bubble.position,
         n_envs,
         n_bubbles,
@@ -328,67 +203,67 @@ def prepare_coupled_bubbles_parameters(
     # Canonical environment-scoped parameters: (E, 1)
     # ---------------------------------------------------------
 
-    rho = _as_env_column(
+    rho = as_env_column(
         material.density,
         n_envs,
         name="density",
     )
 
-    c = _as_env_column(
+    c = as_env_column(
         material.sound_speed,
         n_envs,
         name="sound_speed",
     )
 
-    sigma = _as_env_column(
+    sigma = as_env_column(
         material.surface_tension,
         n_envs,
         name="surface_tension",
     )
 
-    mu = _as_env_column(
+    mu = as_env_column(
         material.dynamic_viscosity,
         n_envs,
         name="dynamic_viscosity",
     )
 
-    p_vapor = _as_env_column(
+    p_vapor = as_env_column(
         material.vapor_pressure,
         n_envs,
         name="vapor_pressure",
     )
 
-    p_ambient = _as_env_column(
+    p_ambient = as_env_column(
         material.ambient_pressure,
         n_envs,
         name="ambient_pressure",
     )
 
-    gamma = _as_env_column(
+    gamma = as_env_column(
         material.polytropic_exponent,
         n_envs,
         name="polytropic_exponent",
     )
 
-    r_ref = _as_env_column(
+    r_ref = as_env_column(
         reference_radius,
         n_envs,
         name="reference_radius",
     )
 
-    amplitude = _as_env_column(
+    amplitude = as_env_column(
         forcing.pressure_amplitude,
         n_envs,
         name="pressure_amplitude",
     )
 
-    frequency = _as_env_column(
+    frequency = as_env_column(
         forcing.frequency,
         n_envs,
         name="frequency",
     )
 
-    phase = _as_env_column(
+    phase = as_env_column(
         forcing.phase,
         n_envs,
         name="phase",

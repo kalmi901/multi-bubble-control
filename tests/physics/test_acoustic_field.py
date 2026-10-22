@@ -512,3 +512,66 @@ def test_empty_acoustic_field_evaluates_to_zero():
     assert_allclose(state.pressure_time_derivative, 0.0)
     assert_allclose(state.pressure_gradient, 0.0)
     assert_allclose(state.fluid_velocity, 0.0)
+
+
+def test_prepare_infers_environments_from_material():
+    material = MaterialProperties(
+        dynamic_viscosity=np.array(
+            [0.001, 0.0011, 0.0012],
+            dtype=np.float64,
+        ),
+    )
+
+    field = AcousticField(
+        components=(
+            UniformHarmonic(
+                pressure_amplitude=1.0e5,
+                frequency=25e3,
+            ),
+        )
+    )
+
+    prepared = prepare_acoustic_field(
+        material,
+        field,
+        reference_frequency=25e3,
+    )
+
+    assert prepared.pressure_amplitude.shape == (3, 1)
+
+
+def test_prepare_supports_environment_specific_directions():
+    field = AcousticField(
+        components=(
+            PlaneStandingWave(
+                pressure_amplitude=1.0e5,
+                frequency=25e3,
+                direction=np.array(
+                    [
+                        [1.0, 0.0, 0.0],
+                        [0.0, 2.0, 0.0],
+                        [1.0, 1.0, 1.0],
+                    ],
+                    dtype=np.float64,
+                ),
+            ),
+        )
+    )
+
+    prepared = prepare_acoustic_field(
+        MaterialProperties(),
+        field,
+        reference_frequency=np.full(
+            3,
+            25e3,
+            dtype=np.float64,
+        ),
+    )
+
+    assert_allclose(
+        np.linalg.norm(
+            prepared.direction[:, 0, :],
+            axis=1,
+        ),
+        1.0,
+    )
