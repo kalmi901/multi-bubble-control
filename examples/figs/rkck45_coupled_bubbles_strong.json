@@ -4,8 +4,8 @@
   "figure": "rkck45_coupled_bubbles_strong.png",
   "figure_sha256": "4d93d44ec17762dc7b30cf1fe477c754ae9b44a7c924a7773fdf0a4f2b338798",
   "frequency_khz": 25.0,
-  "generated_utc": "2026-10-21T15:05:56.104532+00:00",
-  "git_commit": "9b69d2c0c6f1cd87e5e65f8314f631e088af9ecb",
+  "generated_utc": "2026-10-22T14:30:33.125617+00:00",
+  "git_commit": "d2de5b5a4450f76642761deff03984c9705183b7",
   "git_dirty": true,
   "interaction": "instantaneous pressure coupling",
   "model": "fixed-position coupled Keller-Miksis radial dynamics",
@@ -20,20 +20,20 @@
   "reference_radius_micron": 49.99999999999999,
   "response": {
     "max_abs_wall_mach": [
-      0.39220501291654575,
-      0.3922050129163129
+      0.39220501364398935,
+      0.39220501364374705
     ],
     "max_abs_wall_velocity_m_per_s": [
-      588.3075193748186,
-      588.3075193744693
+      588.307520465984,
+      588.3075204656205
     ],
     "radius_max_over_equilibrium": [
-      3.347855462394145,
-      3.3478554623211028
+      3.347855462428218,
+      3.347855462351303
     ],
     "radius_min_over_equilibrium": [
-      0.1117185314222348,
-      0.1117185314222438
+      0.1117185314302678,
+      0.111718531430277
     ]
   },
   "solver": {
