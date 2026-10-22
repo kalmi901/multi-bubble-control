@@ -1,7 +1,9 @@
 import numpy as np
 from numpy.testing import assert_allclose
 
-from multibubble.physics import AcousticForcing, MaterialProperties
+from multibubble.physics import MaterialProperties
+from multibubble.physics.acoustic_field import AcousticField, UniformHarmonic
+from multibubble.physics.common import ReferenceScales
 from multibubble.physics.single_bubble import (
     BubbleParameters,
     prepare_single_bubble_parameters,
@@ -16,8 +18,17 @@ def test_unforced_equilibrium_has_zero_rhs():
         equilibrium_radius=50e-6,
     )
 
-    forcing = AcousticForcing(
-        pressure_amplitude=0.0,
+    field = AcousticField(
+        components=(
+            UniformHarmonic(
+                pressure_amplitude=0.0,
+                frequency=20e3,
+            ),
+        )
+    )
+
+    reference = ReferenceScales(
+        radius=100e-6,
         frequency=20e3,
     )
 
@@ -26,8 +37,8 @@ def test_unforced_equilibrium_has_zero_rhs():
     params = prepare_single_bubble_parameters(
         material,
         bubble,
-        forcing,
-        reference_radius,
+        field,
+        reference,
     )
 
     y = np.array(
@@ -65,18 +76,27 @@ def test_rhs_preserves_batch_shape():
         equilibrium_radius=np.array([40e-6, 50e-6, 60e-6]),
     )
 
-    forcing = AcousticForcing(
-        pressure_amplitude=0.0,
-        frequency=np.array([20e3, 25e3, 30e3]),
+    frequencies = np.array([20e3, 25e3, 30e3], dtype=np.float64)
+
+    field = AcousticField(
+        components=(
+            UniformHarmonic(
+                pressure_amplitude=0.0,
+                frequency=frequencies,
+            ),
+        )
     )
 
-    reference_radius = 100e-6
+    reference = ReferenceScales(
+        radius=100e-6,
+        frequency=frequencies,
+    )
 
     params = prepare_single_bubble_parameters(
         material,
         bubble,
-        forcing,
-        reference_radius,
+        field,
+        reference,
     )
 
     y = np.array(
@@ -102,18 +122,29 @@ def test_radius_derivative_equals_wall_velocity():
         equilibrium_radius=np.array([40e-6, 50e-6, 60e-6]),
     )
 
-    forcing = AcousticForcing(
-        pressure_amplitude=0.0,
-        frequency=np.array([20e3, 25e3, 30e3]),
+    frequencies = np.array(
+        [20e3, 25e3, 30e3],
     )
 
-    reference_radius = 100e-6
+    field = AcousticField(
+        components=(
+            UniformHarmonic(
+                pressure_amplitude=0.0,
+                frequency=frequencies,
+            ),
+        )
+    )
+
+    reference = ReferenceScales(
+        radius=100e-6,
+        frequency=frequencies,
+    )
 
     params = prepare_single_bubble_parameters(
         material,
         bubble,
-        forcing,
-        reference_radius,
+        field,
+        reference,
     )
 
     y = np.array(
@@ -142,21 +173,27 @@ def test_environment_specific_forcing_amplitude():
         equilibrium_radius=50e-6,
     )
 
-    forcing = AcousticForcing(
-        pressure_amplitude=np.array(
-            [0.0, 0.5e5, 1.0e5],
-            dtype=np.float64,
-        ),
-        frequency=25e3,
+    amplitude = np.array([0.0, 0.5e5, 1.0e5], dtype=np.float64)
+
+    field = AcousticField(
+        components=(
+            UniformHarmonic(
+                pressure_amplitude=amplitude,
+                frequency=25e3,
+            ),
+        )
     )
 
-    reference_radius = 100e-6
+    reference = ReferenceScales(
+        radius=100e-6,
+        frequency=25e3,
+    )
 
     params = prepare_single_bubble_parameters(
         material,
         bubble,
-        forcing,
-        reference_radius,
+        field,
+        reference,
     )
 
     # All environments start from the same equilibrium state.
@@ -224,21 +261,26 @@ def test_rhs_satisfies_dimensional_keller_miksis_equation():
         equilibrium_radius=50e-6,
     )
 
-    forcing = AcousticForcing(
-        pressure_amplitude=0.3e5,
-        frequency=25e3,
-        phase=0.3,
+    field = AcousticField(
+        components=(
+            UniformHarmonic(
+                pressure_amplitude=0.3e5, frequency=np.array([25e3, 25e3, 25e3]), temporal_phase=0.3
+            ),
+        )
     )
 
     # Deliberately choose R_ref != R0 so that the test also checks
     # the radius/velocity/acceleration scaling.
-    reference_radius = 80e-6
+    reference = ReferenceScales(
+        radius=80 - 6,
+        frequency=25e3,
+    )
 
     params = prepare_single_bubble_parameters(
         material,
         bubble,
-        forcing,
-        reference_radius,
+        field,
+        reference,
     )
 
     # ---------------------------------------------------------------
@@ -261,7 +303,7 @@ def test_rhs_satisfies_dimensional_keller_miksis_equation():
     )
 
     R0 = bubble.equilibrium_radius
-    frequency = forcing.frequency
+    frequency = field.components[0].frequency
 
     radius = R0 * radius_ratio
 
@@ -275,8 +317,8 @@ def test_rhs_satisfies_dimensional_keller_miksis_equation():
     #
     y = np.column_stack(
         (
-            radius / reference_radius,
-            wall_velocity / (reference_radius * frequency),
+            radius / reference.radius,
+            wall_velocity / (reference.radius * frequency),
         )
     )
 
@@ -294,7 +336,7 @@ def test_rhs_satisfies_dimensional_keller_miksis_equation():
     # dU*/dtau = Rddot / (R_ref f^2)
     # ---------------------------------------------------------------
 
-    wall_acceleration = dydt[:, 1] * reference_radius * frequency**2
+    wall_acceleration = dydt[:, 1] * reference.radius * frequency**2
 
     # ---------------------------------------------------------------
     # Independently evaluate the DIMENSIONAL Keller-Miksis equation.
@@ -310,9 +352,9 @@ def test_rhs_satisfies_dimensional_keller_miksis_equation():
     p_ambient = material.ambient_pressure
     kappa = material.polytropic_exponent
 
-    p_amplitude = forcing.pressure_amplitude
+    p_amplitude = field.components[0].pressure_amplitude
     omega = 2.0 * np.pi * frequency
-    phase = forcing.phase
+    phase = field.components[0].temporal_phase
 
     theta = 2.0 * np.pi * tau + phase
 

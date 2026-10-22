@@ -5,6 +5,8 @@ from numpy.testing import assert_allclose
 
 from multibubble.integrators import solve_rkck45
 from multibubble.physics import AcousticForcing, MaterialProperties
+from multibubble.physics.acoustic_field import AcousticField, UniformHarmonic
+from multibubble.physics.common import ReferenceScales
 from multibubble.physics.coupled_bubbles import (
     CoupledBubblesParameters,
     coupled_bubbles_rhs,
@@ -74,6 +76,10 @@ def test_zero_coupling_matches_independent_single_bubbles():
         frequency=25e3,
     )
 
+    field = AcousticField(components=(UniformHarmonic(pressure_amplitude=0.3e5, frequency=25e3),))
+
+    reference = ReferenceScales(radius=reference_radius, frequency=field.components[0].frequency)
+
     bubbles = CoupledBubblesParameters(
         equilibrium_radius=radii,
         position=np.array(
@@ -117,8 +123,8 @@ def test_zero_coupling_matches_independent_single_bubbles():
             BubbleParameters(
                 equilibrium_radius=radius,
             ),
-            forcing,
-            reference_radius,
+            field,
+            reference,
         )
 
         y0_single = np.array(

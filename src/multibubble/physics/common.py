@@ -23,3 +23,9 @@ class AcousticForcing:
     pressure_amplitude: Parameter
     frequency: Parameter
     phase: Parameter = 0.0
+
+
+@dataclass(frozen=True)
+class ReferenceScales:
+    radius: Parameter
+    frequency: Parameter

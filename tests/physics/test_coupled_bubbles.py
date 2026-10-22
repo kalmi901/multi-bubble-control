@@ -2,6 +2,8 @@ import numpy as np
 from numpy.testing import assert_allclose
 
 from multibubble.physics import AcousticForcing, MaterialProperties
+from multibubble.physics.acoustic_field import AcousticField, UniformHarmonic
+from multibubble.physics.common import ReferenceScales
 from multibubble.physics.coupled_bubbles import (
     CoupledBubblesParameters,
     _assemble_radial_coupling_system,
@@ -346,6 +348,18 @@ def test_single_bubble_limit_matches_single_bubble_rhs():
         ),
     )
 
+    field = AcousticField(
+        components=(
+            UniformHarmonic(
+                pressure_amplitude=np.array([0.15e5, 0.35e5, 0.55e5], dtype=np.float64),
+                frequency=np.array([20e3, 25e3, 31e3], dtype=np.float64),
+                temporal_phase=np.array([0.1, 0.3, -0.2], dtype=np.float64),
+            ),
+        )
+    )
+
+    reference = ReferenceScales(radius=reference_radius, frequency=field.components[0].frequency)
+
     single_bubble = BubbleParameters(
         equilibrium_radius=equilibrium_radius,
     )
@@ -358,8 +372,8 @@ def test_single_bubble_limit_matches_single_bubble_rhs():
     single_params = prepare_single_bubble_parameters(
         material,
         single_bubble,
-        forcing,
-        reference_radius,
+        field,
+        reference,
     )
 
     coupled_params = prepare_coupled_bubbles_parameters(

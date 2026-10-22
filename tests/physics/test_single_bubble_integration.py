@@ -6,7 +6,9 @@ from numpy.testing import assert_allclose
 from scipy.integrate import solve_ivp
 
 from multibubble.integrators import solve_rkck45
-from multibubble.physics import AcousticForcing, MaterialProperties
+from multibubble.physics import MaterialProperties
+from multibubble.physics.acoustic_field import AcousticField, UniformHarmonic
+from multibubble.physics.common import ReferenceScales
 from multibubble.physics.single_bubble import (
     BubbleParameters,
     prepare_single_bubble_parameters,
@@ -30,18 +32,22 @@ def _make_driven_case():
         equilibrium_radius=50e-6,
     )
 
-    forcing = AcousticForcing(
-        pressure_amplitude=0.3e5,
-        frequency=25e3,
+    field = AcousticField(
+        components=(
+            UniformHarmonic(
+                pressure_amplitude=0.3e5,
+                frequency=25e3,
+            ),
+        )
     )
 
-    reference_radius = bubble.equilibrium_radius
+    reference = ReferenceScales(radius=bubble.equilibrium_radius, frequency=25e3)
 
     params = prepare_single_bubble_parameters(
         material,
         bubble,
-        forcing,
-        reference_radius,
+        field,
+        reference,
     )
 
     y0 = np.array(
@@ -136,17 +142,25 @@ def _make_legacy_case(reference, case_index):
         equilibrium_radius=equilibrium_radius,
     )
 
-    forcing = AcousticForcing(
-        pressure_amplitude=float(reference["pressure_amplitude_pa"][case_index]),
-        frequency=float(reference["frequency_hz"][case_index]),
-        phase=float(reference["forcing_phase_rad"]),
+    field = AcousticField(
+        components=(
+            UniformHarmonic(
+                pressure_amplitude=float(reference["pressure_amplitude_pa"][case_index]),
+                frequency=float(reference["frequency_hz"][case_index]),
+                temporal_phase=float(reference["forcing_phase_rad"]),
+            ),
+        )
+    )
+
+    reference = ReferenceScales(
+        radius=reference_radius, frequency=float(reference["frequency_hz"][case_index])
     )
 
     params = prepare_single_bubble_parameters(
         material,
         bubble,
-        forcing,
-        reference_radius,
+        field,
+        reference,
     )
 
     y0 = np.array(
@@ -169,18 +183,22 @@ def test_unforced_equilibrium_remains_equilibrium_when_integrated():
         equilibrium_radius=50e-6,
     )
 
-    forcing = AcousticForcing(
-        pressure_amplitude=0.0,
-        frequency=25e3,
+    field = AcousticField(
+        components=(
+            UniformHarmonic(
+                pressure_amplitude=0.0,
+                frequency=25e3,
+            ),
+        )
     )
 
-    reference_radius = bubble.equilibrium_radius
+    reference = ReferenceScales(radius=bubble.equilibrium_radius, frequency=25e3)
 
     params = prepare_single_bubble_parameters(
         material,
         bubble,
-        forcing,
-        reference_radius,
+        field,
+        reference,
     )
 
     y0 = np.array(
@@ -272,16 +290,22 @@ def test_batched_integration_matches_independent_simulations():
         equilibrium_radius=radii,
     )
 
-    forcing = AcousticForcing(
-        pressure_amplitude=amplitudes,
-        frequency=frequencies,
+    field = AcousticField(
+        components=(
+            UniformHarmonic(
+                pressure_amplitude=amplitudes,
+                frequency=frequencies,
+            ),
+        )
     )
+
+    reference = ReferenceScales(radius=100e-6, frequency=frequencies)
 
     batch_params = prepare_single_bubble_parameters(
         material,
         bubble,
-        forcing,
-        reference_radius,
+        field,
+        reference,
     )
 
     y0_batch = np.column_stack(
@@ -313,16 +337,21 @@ def test_batched_integration_matches_independent_simulations():
             equilibrium_radius=float(radius),
         )
 
-        forcing_independent = AcousticForcing(
-            pressure_amplitude=float(amplitude),
-            frequency=frequency,
+        field_independent = AcousticField(
+            components=(
+                UniformHarmonic(pressure_amplitude=float(amplitude), frequency=float(frequency)),
+            )
+        )
+
+        reference = ReferenceScales(
+            radius=reference_radius, frequency=field_independent.components[0].frequency
         )
 
         params_independent = prepare_single_bubble_parameters(
             material,
             bubble_independent,
-            forcing_independent,
-            reference_radius,
+            field_independent,
+            reference,
         )
 
         y0 = np.array(
