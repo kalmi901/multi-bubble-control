@@ -9,7 +9,7 @@ from multibubble.physics.acoustic_field import (
     evaluate_acoustic_field,
     prepare_acoustic_field,
 )
-from multibubble.physics.common import MaterialProperties
+from multibubble.physics.common import MaterialProperties, ReferenceScales
 
 
 def test_prepare_uniform_harmonic():
@@ -25,7 +25,9 @@ def test_prepare_uniform_harmonic():
         )
     )
 
-    prepared = prepare_acoustic_field(material, field, reference_frequency=25e3, n_envs=1)
+    reference = ReferenceScales(radius=100e-6, frequency=25e3)
+
+    prepared = prepare_acoustic_field(material, field, reference, n_envs=1)
 
     assert prepared.pressure_amplitude.shape == (1, 1)
     assert prepared.direction.shape == (1, 1, 3)
@@ -82,7 +84,17 @@ def test_prepare_standing_wave_normalizes_direction():
         )
     )
 
-    prepared = prepare_acoustic_field(material, field, reference_frequency=25e3, n_envs=1)
+    reference = ReferenceScales(
+        radius=100e-6,
+        frequency=25e3,
+    )
+
+    prepared = prepare_acoustic_field(
+        material,
+        field,
+        reference,
+        n_envs=1,
+    )
 
     assert_allclose(
         prepared.direction[0, 0],
@@ -91,7 +103,7 @@ def test_prepare_standing_wave_normalizes_direction():
 
     assert_allclose(
         prepared.dimensionless_wave_number[0, 0],
-        4.0 * np.pi,
+        2.0 * np.pi * field.components[0].frequency * reference.radius / material.sound_speed,
     )
 
     assert_allclose(
@@ -116,11 +128,13 @@ def test_prepare_rejects_zero_standing_wave_direction():
         )
     )
 
+    reference = ReferenceScales(radius=100e-6, frequency=25e3)
+
     with pytest.raises(
         ValueError,
         match="direction must be non-zero",
     ):
-        prepare_acoustic_field(MaterialProperties(), field, reference_frequency=25e3, n_envs=1)
+        prepare_acoustic_field(MaterialProperties(), field, reference, n_envs=1)
 
 
 def test_prepare_rejects_wrong_environment_shape():
@@ -137,11 +151,13 @@ def test_prepare_rejects_wrong_environment_shape():
         )
     )
 
+    reference = ReferenceScales(radius=100e-6, frequency=25e3)
+
     with pytest.raises(ValueError, match="pressure_amplitude"):
         prepare_acoustic_field(
-            material=MaterialProperties(),
-            field=field,
-            reference_frequency=25e3,
+            MaterialProperties(),
+            field,
+            reference,
             n_envs=3,
         )
 
@@ -159,9 +175,9 @@ def test_uniform_harmonic_evaluation():
         )
     )
 
-    prepared = prepare_acoustic_field(
-        MaterialProperties(), field, reference_frequency=frequency, n_envs=1
-    )
+    reference = ReferenceScales(radius=100e-6, frequency=25e3)
+
+    prepared = prepare_acoustic_field(MaterialProperties(), field, reference, n_envs=1)
 
     state = evaluate_acoustic_field(
         np.array([0.25]),
@@ -213,11 +229,22 @@ def test_standing_wave_antinode_and_node():
         )
     )
 
-    prepared = prepare_acoustic_field(material, field, reference_frequency=frequency, n_envs=1)
+    reference = ReferenceScales(
+        radius=100e-6,
+        frequency=frequency,
+    )
+
+    prepared = prepare_acoustic_field(
+        material,
+        field,
+        reference,
+        n_envs=1,
+    )
 
     # tau = 1/4 -> sin(2*pi*tau) = 1
     tau = np.array([0.25])
 
+    # Pressure antinode at x* = 0.
     antinode = evaluate_acoustic_field(
         tau,
         np.array([[0.0, 0.0, 0.0]]),
@@ -236,11 +263,18 @@ def test_standing_wave_antinode_and_node():
         atol=1e-9,
     )
 
-    # x* = 1/4 for f = f_ref:
-    # k*x = 2*pi * 1/4 = pi/2 -> pressure node.
+    # x_node = lambda / 4
+    #
+    # With x* = x / R_ref:
+    #
+    # x*_node = c / (4 f R_ref)
+    #
+    # therefore k* x* = pi / 2.
+    node_position = material.sound_speed / (4.0 * frequency * reference.radius)
+
     node = evaluate_acoustic_field(
         tau,
-        np.array([[0.25, 0.0, 0.0]]),
+        np.array([[node_position, 0.0, 0.0]]),
         prepared,
     )
 
@@ -287,7 +321,9 @@ def test_pressure_gradient_matches_finite_difference():
         )
     )
 
-    prepared = prepare_acoustic_field(material, field, reference_frequency, n_envs=1)
+    reference = ReferenceScales(radius=100e-6, frequency=reference_frequency)
+
+    prepared = prepare_acoustic_field(material, field, reference, n_envs=1)
 
     tau = np.array([0.31])
 
@@ -302,7 +338,7 @@ def test_pressure_gradient_matches_finite_difference():
         prepared,
     )
 
-    reference_length = material.sound_speed / reference_frequency
+    reference_length = reference.radius
 
     h = 1e-6
 
@@ -352,9 +388,9 @@ def test_standing_wave_gradient_is_parallel_to_direction():
         )
     )
 
-    prepared = prepare_acoustic_field(
-        MaterialProperties(), field, reference_frequency=25e3, n_envs=1
-    )
+    reference = ReferenceScales(radius=100e-6, frequency=25e3)
+
+    prepared = prepare_acoustic_field(MaterialProperties(), field, reference, n_envs=1)
 
     state = evaluate_acoustic_field(
         np.array([0.25]),
@@ -378,6 +414,8 @@ def test_field_superposition_equals_sum_of_components():
     material = MaterialProperties()
     reference_frequency = 25e3
 
+    reference = ReferenceScales(radius=100e-6, frequency=reference_frequency)
+
     component_a = UniformHarmonic(
         pressure_amplitude=0.4e5,
         frequency=25e3,
@@ -400,7 +438,7 @@ def test_field_superposition_equals_sum_of_components():
                 component_b,
             )
         ),
-        reference_frequency,
+        reference,
         n_envs=1,
     )
 
@@ -409,7 +447,7 @@ def test_field_superposition_equals_sum_of_components():
         AcousticField(
             components=(component_a,),
         ),
-        reference_frequency,
+        reference,
         n_envs=1,
     )
 
@@ -418,7 +456,7 @@ def test_field_superposition_equals_sum_of_components():
         AcousticField(
             components=(component_b,),
         ),
-        reference_frequency,
+        reference,
         n_envs=1,
     )
 
@@ -468,12 +506,15 @@ def test_field_superposition_equals_sum_of_components():
 
 
 def test_empty_acoustic_field_evaluates_to_zero():
+
+    reference = ReferenceScales(radius=100e-6, frequency=np.array([25e3, 25e3]))
+
     prepared = prepare_acoustic_field(
         MaterialProperties(),
         AcousticField(
             components=(),
         ),
-        reference_frequency=np.array([25e3, 25e3]),
+        reference,
         n_envs=2,
     )
 
@@ -510,14 +551,19 @@ def test_prepare_supports_environment_specific_directions():
         )
     )
 
-    prepared = prepare_acoustic_field(
-        MaterialProperties(),
-        field,
-        reference_frequency=np.full(
+    reference = ReferenceScales(
+        radius=100e-6,
+        frequency=np.full(
             3,
             25e3,
             dtype=np.float64,
         ),
+    )
+
+    prepared = prepare_acoustic_field(
+        MaterialProperties(),
+        field,
+        reference,
         n_envs=3,
     )
 

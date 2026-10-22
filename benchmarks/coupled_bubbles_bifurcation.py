@@ -87,12 +87,16 @@ def main():
 
     material = MaterialProperties()
 
+    frequency = args.frequency * 1e3
+    reference_radius = min(args.radii) * 1e-6
+    reference_length = material.sound_speed / frequency
+
     bubbles = CoupledBubblesParameters(
         equilibrium_radius=np.asarray(args.radii, dtype=np.float64) * 1e-6,
-        position=np.asarray(args.positions, dtype=np.float64)[..., np.newaxis],
+        position=np.asarray(args.positions, dtype=np.float64)[..., np.newaxis]
+        * reference_length
+        / reference_radius,
     )
-
-    frequency = args.frequency * 1e3
 
     pressure_amplitudes = (
         np.linspace(
@@ -108,7 +112,7 @@ def main():
         components=(UniformHarmonic(pressure_amplitude=pressure_amplitudes, frequency=frequency),)
     )
 
-    reference = ReferenceScales(radius=min(bubbles.equilibrium_radius), frequency=frequency)
+    reference = ReferenceScales(radius=reference_radius, frequency=frequency)
 
     params = prepare_coupled_bubbles_parameters(
         material, bubbles, field, reference, args.num_amplitudes

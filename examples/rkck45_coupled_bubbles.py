@@ -60,13 +60,16 @@ def main():
 
     material = MaterialProperties()
 
-    bubbles = CoupledBubblesParameters(
-        equilibrium_radius=np.asarray(args.radii, dtype=np.float64) * 1e-6,
-        position=np.asarray(args.positions, dtype=np.float64)[..., np.newaxis],
-    )
-
     frequency = args.frequency * 1e3
     reference_radius = (args.ref_radius if args.ref_radius is not None else min(args.radii)) * 1e-6
+    reference_length = material.sound_speed / frequency
+
+    bubbles = CoupledBubblesParameters(
+        equilibrium_radius=np.asarray(args.radii, dtype=np.float64) * 1e-6,
+        position=np.asarray(args.positions, dtype=np.float64)[..., np.newaxis]
+        * reference_length
+        / reference_radius,
+    )
 
     field = AcousticField(
         components=(UniformHarmonic(pressure_amplitude=args.amplitude * 1e5, frequency=frequency),)

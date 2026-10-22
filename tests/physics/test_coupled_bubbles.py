@@ -518,13 +518,11 @@ def test_radial_coupling_excludes_self_interaction():
         atol=0.0,
     )
 
-    # x* = x / (c/f), therefore
-    # K_ij = (R_ref / (c/f)) / |x_i* - x_j*|.
-    reference_length = material.sound_speed / reference.frequency
+    # x* = x / R_ref, therefore
+    # K_ij = (R_ref / R_ref) / |x_i* - x_j*|.
+    # reference_length = material.sound_speed / reference.frequency
 
-    expected_k01 = (
-        reference.radius / reference_length / abs(bubbles.position[0, 0] - bubbles.position[1, 0])
-    )
+    expected_k01 = 1.0 / abs(bubbles.position[0, 0] - bubbles.position[1, 0])
 
     assert_allclose(
         coupling[0, 0, 1],
@@ -544,6 +542,19 @@ def test_radial_coupling_excludes_self_interaction():
 def test_coupled_bubbles_evaluate_spatial_acoustic_field_at_each_bubble():
     material = MaterialProperties()
 
+    pressure_amplitude = 1.0e5
+    frequency = 25e3
+    reference_radius = 50e-6
+
+    # x_node = lambda / 4
+    #
+    # With x* = x / R_ref:
+    #
+    # x*_node = c / (4 f R_ref)
+    #
+    # therefore k* x* = pi / 2.
+    node_position = material.sound_speed / (4.0 * frequency * reference_radius)
+
     bubbles = CoupledBubblesParameters(
         equilibrium_radius=np.array(
             [50e-6, 50e-6],
@@ -552,14 +563,11 @@ def test_coupled_bubbles_evaluate_spatial_acoustic_field_at_each_bubble():
         position=np.array(
             [
                 [0.0],  # pressure antinode
-                [0.25],  # pressure node for f = f_ref
+                [node_position],  # pressure node for f = f_ref
             ],
             dtype=np.float64,
         ),
     )
-
-    pressure_amplitude = 1.0e5
-    frequency = 25e3
 
     field = AcousticField(
         components=(
@@ -572,7 +580,7 @@ def test_coupled_bubbles_evaluate_spatial_acoustic_field_at_each_bubble():
     )
 
     reference = ReferenceScales(
-        radius=50e-6,
+        radius=reference_radius,
         frequency=frequency,
     )
 

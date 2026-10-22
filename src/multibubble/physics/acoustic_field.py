@@ -6,7 +6,7 @@ from ._batching import (
     as_direction_matrix,
     as_env_vector,
 )
-from .common import FloatArray, MaterialProperties, Parameter
+from .common import FloatArray, MaterialProperties, Parameter, ReferenceScales
 
 
 @dataclass(frozen=True)
@@ -96,13 +96,10 @@ class AcousticFieldState:
 
 
 def prepare_acoustic_field(
-    material: MaterialProperties, field: AcousticField, reference_frequency: Parameter, n_envs: int
+    material: MaterialProperties, field: AcousticField, reference: ReferenceScales, n_envs: int
 ) -> PreparedAcousticField:
     """Prepare a prescribed acoustic field for repeated evaluation.
 
-    The physical excitation frequencies belong to the field while
-    ``reference_frequency`` defines the nondimensional time and
-    position scales.
 
     Prepared arrays use shape ``(E, H)`` where E is the number of
     independent environments and H is the number of field components.
@@ -124,9 +121,15 @@ def prepare_acoustic_field(
     )
 
     f_ref = as_env_vector(
-        reference_frequency,
+        reference.frequency,
         n_envs,
         name="reference_frequency",
+    )
+
+    r_ref = as_env_vector(
+        reference.radius,
+        n_envs,
+        name="reference_radius",
     )
 
     if np.any(density <= 0.0):
@@ -137,6 +140,9 @@ def prepare_acoustic_field(
 
     if np.any(f_ref <= 0.0):
         raise ValueError("reference_frequency must be positive.")
+
+    if np.any(r_ref <= 0.0):
+        raise ValueError("reference_radius must be positive.")
 
     n_components = len(field.components)
 
@@ -253,7 +259,9 @@ def prepare_acoustic_field(
 
             direction[:, component_index, :] = unit_direction
 
-            dimensionless_wave_number[:, component_index] = 2.0 * np.pi * frequency_ratio
+            dimensionless_wave_number[:, component_index] = (
+                2.0 * np.pi * frequency * r_ref / sound_speed
+            )
 
             physical_wave_number[:, component_index] = 2.0 * np.pi * frequency / sound_speed
 

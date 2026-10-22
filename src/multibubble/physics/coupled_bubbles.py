@@ -14,6 +14,7 @@ from .acoustic_field import (
     prepare_acoustic_field,
 )
 from .common import FloatArray, MaterialProperties, Parameter, ReferenceScales
+from .keller_miksis import keller_miksis_terms
 
 
 @dataclass(frozen=True)
@@ -55,11 +56,8 @@ class PreparedCoupledBubblesParameters:
 
 def _prepare_radial_coupling(
     position: FloatArray,
-    reference_radius: Parameter,
-    sound_speed: Parameter,
-    frequency: Parameter,
 ) -> FloatArray:
-    """Return K_ij = R_ref / d_ij for fixed dimensionless geometry."""
+    """Return K_ij = 1 / d*_ij for geometry scaled by R_ref."""
 
     delta = position[:, :, None, :] - position[:, None, :, :]  # (E, N, N, D)
 
@@ -87,22 +85,7 @@ def _prepare_radial_coupling(
         where=~diagonal,
     )
 
-    # scalar or (E, 1)
-    reference_length = sound_speed / frequency
-
-    # scalar or (E, 1)
-    coupling_scale = reference_radius / reference_length
-
-    coupling_scale = np.asarray(
-        coupling_scale,
-        dtype=np.float64,
-    )
-
-    if coupling_scale.ndim == 0:
-        return coupling_scale * inverse_distance
-
-    # (E, 1) -> (E, 1, 1)
-    return coupling_scale[..., None] * inverse_distance
+    return inverse_distance
 
 
 def prepare_coupled_bubbles_parameters(
@@ -238,7 +221,7 @@ def prepare_coupled_bubbles_parameters(
     acoustic_field = prepare_acoustic_field(
         material,
         field,
-        reference_frequency=reference.frequency,
+        reference,
         n_envs=n_envs,
     )
 
@@ -256,12 +239,7 @@ def prepare_coupled_bubbles_parameters(
         wall_mach_scale=velocity_scale / c,
         gas_pressure_exponent=3.0 * gamma,
         position=position,
-        radial_coupling=_prepare_radial_coupling(
-            position=position,
-            reference_radius=r_ref,
-            sound_speed=c,
-            frequency=f_ref,
-        ),
+        radial_coupling=_prepare_radial_coupling(position=position),
         acoustic_field=acoustic_field,
         reference_radius=r_ref,
         reference_frequency=f_ref,
@@ -335,28 +313,12 @@ def coupled_bubbles_rhs(
     R = y[..., 0]
     U = y[..., 1]
 
-    inv_R = 1.0 / R
-
-    gas_term = (params.equilibrium_radius_ratio * inv_R) ** params.gas_pressure_exponent
-
     field_state = evaluate_acoustic_field(t, params.position, params.acoustic_field)
 
     pressure = field_state.pressure
     pressure_time_derivative = field_state.pressure_time_derivative
 
-    numerator = (
-        (params.gas_pressure_coefficient + params.gas_pressure_velocity_coefficient * U) * gas_term
-        - params.static_pressure_coefficient * (1.0 + params.wall_mach_scale * U)
-        - params.surface_tension_coefficient * inv_R
-        - params.viscous_coefficient * U * inv_R
-        - 1.5 * (1.0 - params.wall_mach_scale * U / 3.0) * U**2
-        - (1.0 + params.wall_mach_scale * U) * params.acoustic_pressure_scale * pressure
-        - params.acoustic_pressure_derivative_scale * pressure_time_derivative * R
-    )
-
-    denominator = (
-        R - params.wall_mach_scale * R * U + params.viscous_coefficient * params.wall_mach_scale
-    )
+    numerator, denominator = keller_miksis_terms(R, U, pressure, pressure_time_derivative, params)
 
     dydt = np.empty_like(y)
 

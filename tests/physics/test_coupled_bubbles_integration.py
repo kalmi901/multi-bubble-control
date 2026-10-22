@@ -139,6 +139,10 @@ def test_zero_coupling_matches_independent_single_bubbles():
 def test_identical_two_bubbles_remain_symmetric():
     material = MaterialProperties()
 
+    frequency = 25e3
+    reference_radius = 50e-6
+    reference_length = material.sound_speed / frequency
+
     bubbles = CoupledBubblesParameters(
         equilibrium_radius=np.array(
             [50e-6, 50e-6],
@@ -146,16 +150,18 @@ def test_identical_two_bubbles_remain_symmetric():
         ),
         position=np.array(
             [
-                [-0.5],
-                [0.5],
+                [-0.5 * reference_length / reference_radius],
+                [0.5 * reference_length / reference_radius],
             ],
             dtype=np.float64,
         ),
     )
 
-    field = AcousticField(components=(UniformHarmonic(pressure_amplitude=0.4e5, frequency=25e3),))
+    field = AcousticField(
+        components=(UniformHarmonic(pressure_amplitude=0.4e5, frequency=frequency),)
+    )
 
-    reference = ReferenceScales(radius=50e-6, frequency=field.components[0].frequency)
+    reference = ReferenceScales(radius=reference_radius, frequency=field.components[0].frequency)
 
     params = prepare_coupled_bubbles_parameters(material, bubbles, field, reference, 1)
 
@@ -186,6 +192,10 @@ def test_identical_two_bubbles_remain_symmetric():
 def test_permutation_equivariance():
     material = MaterialProperties()
 
+    frequency = 25e3
+    reference_radius = 50e-6
+    reference_length = material.sound_speed / frequency
+
     equilibrium_radius = np.array(
         [35e-6, 50e-6, 70e-6],
         dtype=np.float64,
@@ -193,9 +203,9 @@ def test_permutation_equivariance():
 
     position = np.array(
         [
-            [0.0],
-            [0.08],
-            [0.21],
+            [0.0 * reference_length / reference_radius],
+            [0.08 * reference_length / reference_radius],
+            [0.21 * reference_length / reference_radius],
         ],
         dtype=np.float64,
     )
@@ -204,7 +214,7 @@ def test_permutation_equivariance():
         components=(UniformHarmonic(pressure_amplitude=0.35e5, frequency=25e3, temporal_phase=0.2),)
     )
 
-    reference = ReferenceScales(radius=50e-6, frequency=field.components[0].frequency)
+    reference = ReferenceScales(radius=reference_radius, frequency=field.components[0].frequency)
 
     # ---------------------------------------------------------
     # Original ordering
@@ -278,6 +288,10 @@ def test_permutation_equivariance():
 def test_solution_converges_with_tighter_rkck45_tolerances():
     material = MaterialProperties()
 
+    frequency = 25e3
+    reference_radius = 50e-6
+    reference_length = material.sound_speed / frequency
+
     bubbles = CoupledBubblesParameters(
         equilibrium_radius=np.array(
             [40e-6, 55e-6],
@@ -285,8 +299,8 @@ def test_solution_converges_with_tighter_rkck45_tolerances():
         ),
         position=np.array(
             [
-                [0.0],
-                [0.08],
+                [0.0 * reference_length / reference_radius],
+                [0.08 * reference_length / reference_radius],
             ],
             dtype=np.float64,
         ),
@@ -294,11 +308,11 @@ def test_solution_converges_with_tighter_rkck45_tolerances():
 
     field = AcousticField(
         components=(
-            UniformHarmonic(pressure_amplitude=0.30e5, frequency=25e3, temporal_phase=0.15),
+            UniformHarmonic(pressure_amplitude=0.30e5, frequency=frequency, temporal_phase=0.15),
         )
     )
 
-    reference = ReferenceScales(radius=50e-6, frequency=field.components[0].frequency)
+    reference = ReferenceScales(radius=reference_radius, frequency=frequency)
 
     params = prepare_coupled_bubbles_parameters(material, bubbles, field, reference, 1)
 
@@ -364,6 +378,16 @@ def test_solution_converges_with_tighter_rkck45_tolerances():
 def test_batched_environments_match_independent_coupled_integrations():
     material = MaterialProperties()
 
+    frequency = np.array(
+        [22e3, 25e3, 28e3],
+        dtype=np.float64,
+    )
+    reference_radius = np.array(
+        [50e-6, 55e-6, 60e-6],
+        dtype=np.float64,
+    )
+    reference_length = material.sound_speed / frequency
+
     equilibrium_radius = np.array(
         [
             [35e-6, 50e-6],
@@ -373,22 +397,26 @@ def test_batched_environments_match_independent_coupled_integrations():
         dtype=np.float64,
     )
 
-    position = np.array(
-        [
+    position = (
+        np.array(
             [
-                [0.0],
-                [0.12],
+                [
+                    [0.0],
+                    [0.12],
+                ],
+                [
+                    [0.0],
+                    [0.18],
+                ],
+                [
+                    [0.0],
+                    [0.25],
+                ],
             ],
-            [
-                [0.0],
-                [0.18],
-            ],
-            [
-                [0.0],
-                [0.25],
-            ],
-        ],
-        dtype=np.float64,
+            dtype=np.float64,
+        )
+        * reference_length
+        / reference_radius
     )
 
     pressure_amplitude = np.array(
@@ -396,18 +424,8 @@ def test_batched_environments_match_independent_coupled_integrations():
         dtype=np.float64,
     )
 
-    frequency = np.array(
-        [22e3, 25e3, 28e3],
-        dtype=np.float64,
-    )
-
     phase = np.array(
         [0.1, 0.2, -0.15],
-        dtype=np.float64,
-    )
-
-    reference_radius = np.array(
-        [50e-6, 55e-6, 60e-6],
         dtype=np.float64,
     )
 

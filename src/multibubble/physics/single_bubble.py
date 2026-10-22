@@ -10,6 +10,7 @@ from .acoustic_field import (
     prepare_acoustic_field,
 )
 from .common import FloatArray, MaterialProperties, Parameter, ReferenceScales
+from .keller_miksis import keller_miksis_terms
 
 
 @dataclass(frozen=True)
@@ -159,9 +160,7 @@ def prepare_single_bubble_parameters(
     # reference-frequency scale as the bubble dynamics.
     # ---------------------------------------------------------
 
-    acoustic_field = prepare_acoustic_field(
-        material, field, reference_frequency=f_ref, n_envs=n_envs
-    )
+    acoustic_field = prepare_acoustic_field(material, field, reference, n_envs=n_envs)
 
     return PreparedSingleBubbleParameters(
         equilibrium_radius_ratio=(r0 / r_ref),
@@ -200,11 +199,6 @@ def single_bubble_rhs(
     R = y[:, 0]
     U = y[:, 1]
 
-    inv_R = 1.0 / R
-
-    # Polytropic gas-pressure contribution.
-    gas_term = (params.equilibrium_radius_ratio * inv_R) ** params.gas_pressure_exponent
-
     field_state = evaluate_acoustic_field(
         t,
         np.zeros((R.shape[0], 3)),
@@ -214,19 +208,7 @@ def single_bubble_rhs(
     pressure = field_state.pressure
     pressure_time_derivative = field_state.pressure_time_derivative
 
-    numerator = (
-        (params.gas_pressure_coefficient + params.gas_pressure_velocity_coefficient * U) * gas_term
-        - params.static_pressure_coefficient * (1.0 + params.wall_mach_scale * U)
-        - params.surface_tension_coefficient * inv_R
-        - params.viscous_coefficient * U * inv_R
-        - 1.5 * (1.0 - params.wall_mach_scale * U / 3.0) * U**2
-        - (1.0 + params.wall_mach_scale * U) * params.acoustic_pressure_scale * pressure
-        - params.acoustic_pressure_derivative_scale * pressure_time_derivative * R
-    )
-
-    denominator = (
-        R - params.wall_mach_scale * R * U + params.viscous_coefficient * params.wall_mach_scale
-    )
+    numerator, denominator = keller_miksis_terms(R, U, pressure, pressure_time_derivative, params)
 
     dydt = np.empty_like(y)
 
