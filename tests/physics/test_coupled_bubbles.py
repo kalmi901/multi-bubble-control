@@ -520,7 +520,6 @@ def test_radial_coupling_excludes_self_interaction():
 
     # x* = x / R_ref, therefore
     # K_ij = (R_ref / R_ref) / |x_i* - x_j*|.
-    # reference_length = material.sound_speed / reference.frequency
 
     expected_k01 = 1.0 / abs(bubbles.position[0, 0] - bubbles.position[1, 0])
 
@@ -599,7 +598,8 @@ def test_coupled_bubbles_evaluate_spatial_acoustic_field_at_each_bubble():
     # x* = 0 -> cos(k*x) = 1 -> p = P_A
     #
     # Bubble 1:
-    # x* = 1/4 -> cos(pi/2) = 0 -> p = 0
+    # x* = c / (4 f R_ref)
+    # k* x* = pi/2 -> p = 0
     field_state = evaluate_acoustic_field(
         t=np.array([0.25]),
         position=params.position,

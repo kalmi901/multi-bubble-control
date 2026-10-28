@@ -388,6 +388,8 @@ def test_batched_environments_match_independent_coupled_integrations():
     )
     reference_length = material.sound_speed / frequency
 
+    position_scale = (reference_length / reference_radius)[:, None, None]
+
     equilibrium_radius = np.array(
         [
             [35e-6, 50e-6],
@@ -415,9 +417,10 @@ def test_batched_environments_match_independent_coupled_integrations():
             ],
             dtype=np.float64,
         )
-        * reference_length
-        / reference_radius
+        * position_scale
     )
+
+    assert position.shape == (3, 2, 1)
 
     pressure_amplitude = np.array(
         [0.20e5, 0.30e5, 0.40e5],

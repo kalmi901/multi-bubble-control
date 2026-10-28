@@ -291,6 +291,10 @@ def evaluate_acoustic_field(
 ) -> AcousticFieldState:
     """Evaluate a prepared prescribed acoustic field.
 
+    Positions are nondimensionalized by the reference radius:
+
+        x* = x / R_ref
+
     Supported position shapes
     -------------------------
     Single point per environment:

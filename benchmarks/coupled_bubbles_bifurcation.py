@@ -31,7 +31,7 @@ def _parse_args():
         type=float,
         nargs="+",
         default=[0.0, 0.02],
-        help="Dimensionless position of bubbles [1D]",
+        help="Bubble positions as x/lambda [1D]",
     )
 
     p.add_argument("--frequency", type=float, default=25.0, help="Excitation frequency [kHz]")
@@ -234,7 +234,7 @@ def main():
             "model": "fixed-position coupled Keller-Miksis radial dynamics",
             "interaction": "instantaneous pressure coupling",
             "radii_micron": np.asarray(args.radii).tolist(),
-            "positions_dimensionless": np.asarray(args.positions).tolist(),
+            "positions_x_over_lambda": np.asarray(args.positions).tolist(),
             "frequency_khz": args.frequency,
             "pressure_range_bar": [
                 args.p_min,

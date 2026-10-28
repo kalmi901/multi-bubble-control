@@ -214,8 +214,8 @@ def prepare_coupled_bubbles_parameters(
     # Acoustic field
     #
     # Important:
-    # pass the ORIGINAL scalar/(E,) reference frequency,
-    # not the coupled-model scalar/(E,1) representation.
+    # Pass the original public ReferenceScales representation,
+    # not the coupled-model scalar/(E,1) canonicalized parameters.
     # ---------------------------------------------------------
 
     acoustic_field = prepare_acoustic_field(
