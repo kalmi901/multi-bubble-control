@@ -4,6 +4,11 @@ import hashlib
 import subprocess
 from pathlib import Path
 
+GIT_DIRTY_EXCLUDED_PATHS = (
+    "examples/figs",
+    "benchmarks/figs",
+)
+
 
 def get_git_commit() -> str | None:
     try:
@@ -17,9 +22,19 @@ def get_git_commit() -> str | None:
 
 
 def get_git_is_dirty() -> bool | None:
+
+    excluded_pathspecs = [f":(exclude){path}" for path in GIT_DIRTY_EXCLUDED_PATHS]
+
     try:
         result = subprocess.run(
-            ["git", "status", "--porcelain"],
+            [
+                "git",
+                "status",
+                "--porcelain",
+                "--",
+                ".",
+                *excluded_pathspecs,
+            ],
             check=True,
             capture_output=True,
             text=True,
