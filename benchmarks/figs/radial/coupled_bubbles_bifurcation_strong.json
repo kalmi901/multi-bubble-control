@@ -1,15 +1,15 @@
 {
   "benchmark": "coupled_bubbles_bifurcation",
   "figure": "coupled_bubbles_bifurcation_strong.png",
-  "figure_sha256": "b52caa35e374e937200418d7f68854e427936616014cc24d2627241f57f4db3a",
+  "figure_sha256": "4d6d96bdc5095f6661cc1353ff33c91ca3100cdbbd1cb7540b5696ff25962bf1",
   "frequency_khz": 25.0,
-  "generated_utc": "2026-10-22T15:30:59.469358+00:00",
-  "git_commit": "d2de5b5a4450f76642761deff03984c9705183b7",
-  "git_dirty": true,
+  "generated_utc": "2026-10-28T19:16:31.192302+00:00",
+  "git_commit": "2294d4da2d2cffa2f444d7ad955fc23ddb098925",
+  "git_dirty": false,
   "interaction": "instantaneous pressure coupling",
   "model": "fixed-position coupled Keller-Miksis radial dynamics",
   "num_amplitudes": 128,
-  "positions_dimensionless": [
+  "positions_x_over_lambda": [
     0.0,
     0.02
   ],
@@ -33,9 +33,9 @@
     "rtol": 1e-08
   },
   "statistics": {
-    "accepted_steps": 22938757,
-    "elapsed_seconds": 988.8716700000223,
-    "rejected_steps": 6500770
+    "accepted_steps": 22938024,
+    "elapsed_seconds": 941.5357600003481,
+    "rejected_steps": 6492373
   },
   "transient_cycles": 512
 }
