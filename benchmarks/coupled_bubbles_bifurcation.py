@@ -5,7 +5,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from multibubble.integrators import solve_rkck45
-from multibubble.physics import AcousticForcing, MaterialProperties
+from multibubble.physics import MaterialProperties
+from multibubble.physics.acoustic_field import AcousticField, UniformHarmonic
+from multibubble.physics.common import ReferenceScales
 from multibubble.physics.coupled_bubbles import (
     CoupledBubblesParameters,
     coupled_bubbles_rhs,
@@ -29,7 +31,7 @@ def _parse_args():
         type=float,
         nargs="+",
         default=[0.0, 0.02],
-        help="Dimensionless position of bubbles [1D]",
+        help="Bubble positions as x/lambda [1D]",
     )
 
     p.add_argument("--frequency", type=float, default=25.0, help="Excitation frequency [kHz]")
@@ -85,12 +87,16 @@ def main():
 
     material = MaterialProperties()
 
+    frequency = args.frequency * 1e3
+    reference_radius = min(args.radii) * 1e-6
+    reference_length = material.sound_speed / frequency
+
     bubbles = CoupledBubblesParameters(
         equilibrium_radius=np.asarray(args.radii, dtype=np.float64) * 1e-6,
-        position=np.asarray(args.positions, dtype=np.float64)[..., np.newaxis],
+        position=np.asarray(args.positions, dtype=np.float64)[..., np.newaxis]
+        * reference_length
+        / reference_radius,
     )
-
-    frequency = args.frequency * 1e3
 
     pressure_amplitudes = (
         np.linspace(
@@ -102,16 +108,17 @@ def main():
         * 1e5
     )
 
-    forcing = AcousticForcing(
-        pressure_amplitude=pressure_amplitudes,
-        frequency=frequency,
+    field = AcousticField(
+        components=(UniformHarmonic(pressure_amplitude=pressure_amplitudes, frequency=frequency),)
     )
 
-    reference_radius = min(bubbles.equilibrium_radius)
+    reference = ReferenceScales(radius=reference_radius, frequency=frequency)
 
-    params = prepare_coupled_bubbles_parameters(material, bubbles, forcing, reference_radius)
+    params = prepare_coupled_bubbles_parameters(
+        material, bubbles, field, reference, args.num_amplitudes
+    )
 
-    radius_ratio = bubbles.equilibrium_radius / reference_radius
+    radius_ratio = bubbles.equilibrium_radius / reference.radius
 
     num_envs = pressure_amplitudes.size
 
@@ -227,7 +234,7 @@ def main():
             "model": "fixed-position coupled Keller-Miksis radial dynamics",
             "interaction": "instantaneous pressure coupling",
             "radii_micron": np.asarray(args.radii).tolist(),
-            "positions_dimensionless": np.asarray(args.positions).tolist(),
+            "positions_x_over_lambda": np.asarray(args.positions).tolist(),
             "frequency_khz": args.frequency,
             "pressure_range_bar": [
                 args.p_min,
@@ -236,7 +243,7 @@ def main():
             "num_amplitudes": args.num_amplitudes,
             "transient_cycles": args.transient_cycles,
             "sample_cycles": args.sample_cycles,
-            "reference_radius_micron": reference_radius * 1e6,
+            "reference_radius_micron": reference.radius * 1e6,
             "solver": {
                 "name": "RKCK45",
                 "rtol": 1e-8,

@@ -2,7 +2,15 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from .common import AcousticForcing, FloatArray, MaterialProperties, Parameter
+from ._batching import as_env_parameter, as_env_vector
+from .acoustic_field import (
+    AcousticField,
+    PreparedAcousticField,
+    evaluate_acoustic_field,
+    prepare_acoustic_field,
+)
+from .common import FloatArray, MaterialProperties, Parameter, ReferenceScales
+from .keller_miksis import keller_miksis_terms
 
 
 @dataclass(frozen=True)
@@ -12,10 +20,12 @@ class BubbleParameters:
 
 @dataclass(frozen=True)
 class PreparedSingleBubbleParameters:
-    equilibrium_radius_ratio: Parameter
+    # Bubble-scoped: (E, )
+    equilibrium_radius_ratio: FloatArray
+    gas_pressure_coefficient: FloatArray
+    gas_pressure_velocity_coefficient: FloatArray
 
-    gas_pressure_coefficient: Parameter
-    gas_pressure_velocity_coefficient: Parameter
+    # Shared scalar or environment-scoped: (E, )
     static_pressure_coefficient: Parameter
     surface_tension_coefficient: Parameter
     viscous_coefficient: Parameter
@@ -26,44 +36,134 @@ class PreparedSingleBubbleParameters:
 
     gas_pressure_exponent: Parameter
 
-    forcing_amplitude: Parameter
-    forcing_angular_frequency: Parameter
-    forcing_phase: Parameter
+    acoustic_field: PreparedAcousticField
+
+    # Shared scalar or environment-scoped: (E, )
+    reference_radius: Parameter
+    reference_frequency: Parameter
 
 
 def prepare_single_bubble_parameters(
     material: MaterialProperties,
     bubble: BubbleParameters,
-    forcing: AcousticForcing,
-    reference_radius: Parameter,
+    field: AcousticField,
+    reference: ReferenceScales,
+    n_envs: int,
 ) -> PreparedSingleBubbleParameters:
-    rho = np.asarray(material.density, dtype=np.float64)
-    c = np.asarray(material.sound_speed, dtype=np.float64)
-    sigma = np.asarray(material.surface_tension, dtype=np.float64)
-    mu = np.asarray(material.dynamic_viscosity, dtype=np.float64)
-    p_vapor = np.asarray(material.vapor_pressure, dtype=np.float64)
-    p_ambient = np.asarray(material.ambient_pressure, dtype=np.float64)
-    gamma = np.asarray(material.polytropic_exponent, dtype=np.float64)
 
-    r0 = np.asarray(bubble.equilibrium_radius, dtype=np.float64)
+    if n_envs < 1:
+        raise ValueError("n_envs must be positive.")
 
-    r_ref = np.asarray(reference_radius, dtype=np.float64)
+    equilibrium_radius_input = np.asarray(
+        bubble.equilibrium_radius,
+        dtype=np.float64,
+    )
 
-    amplitude = np.asarray(forcing.pressure_amplitude, dtype=np.float64)
+    if equilibrium_radius_input.ndim not in (0, 1):
+        raise ValueError("equilibrium_radius must be a scalar or have shape (n_envs,).")
 
-    frequency = np.asarray(forcing.frequency, dtype=np.float64)
+    # ---------------------------------------------------------
+    # Bubble-scoped parameters: (E,)
+    # ---------------------------------------------------------
+    r0 = as_env_vector(
+        equilibrium_radius_input,
+        n_envs,
+        name="equilibrium_radius",
+    )
 
-    phase = np.asarray(forcing.phase, dtype=np.float64)
+    # ---------------------------------------------------------
+    # Shared scalar OR environment-scoped (E,)
+    # ---------------------------------------------------------
 
-    omega = 2.0 * np.pi * frequency
+    rho = as_env_parameter(
+        material.density,
+        n_envs,
+        name="density",
+    )
+
+    c = as_env_parameter(
+        material.sound_speed,
+        n_envs,
+        name="sound_speed",
+    )
+
+    sigma = as_env_parameter(
+        material.surface_tension,
+        n_envs,
+        name="surface_tension",
+    )
+
+    mu = as_env_parameter(
+        material.dynamic_viscosity,
+        n_envs,
+        name="dynamic_viscosity",
+    )
+
+    p_vapor = as_env_parameter(
+        material.vapor_pressure,
+        n_envs,
+        name="vapor_pressure",
+    )
+
+    p_ambient = as_env_parameter(
+        material.ambient_pressure,
+        n_envs,
+        name="ambient_pressure",
+    )
+
+    gamma = as_env_parameter(
+        material.polytropic_exponent,
+        n_envs,
+        name="polytropic_exponent",
+    )
+
+    r_ref = as_env_parameter(
+        reference.radius,
+        n_envs,
+        name="reference_radius",
+    )
+
+    f_ref = as_env_parameter(
+        reference.frequency,
+        n_envs,
+        name="reference_frequency",
+    )
+
+    if np.any(r_ref <= 0.0):
+        raise ValueError("reference radius must be positive.")
+
+    if np.any(f_ref <= 0.0):
+        raise ValueError("reference frequency must be positive.")
+
+    # ---------------------------------------------------------
+    # Reference scales
+    #
+    # tau = f_ref * t_phys
+    #
+    # R* = R / R_ref
+    #
+    # U* = Rdot / (R_ref * f_ref)
+    # ---------------------------------------------------------
+
+    time_scale = 1.0 / f_ref
+
+    velocity_scale = r_ref * f_ref
+
+    # ---------------------------------------------------------
+    # Physical equilibrium gas pressure
+    # ---------------------------------------------------------
 
     gas_pressure_0 = 2.0 * sigma / r0 + p_ambient - p_vapor
 
-    time_scale = 2.0 * np.pi / omega
-    velocity_scale = r_ref * omega / (2.0 * np.pi)
+    # ---------------------------------------------------------
+    # Prepare prescribed acoustic field using the SAME
+    # reference-frequency scale as the bubble dynamics.
+    # ---------------------------------------------------------
+
+    acoustic_field = prepare_acoustic_field(material, field, reference, n_envs=n_envs)
 
     return PreparedSingleBubbleParameters(
-        equilibrium_radius_ratio=r0 / r_ref,
+        equilibrium_radius_ratio=(r0 / r_ref),
         gas_pressure_coefficient=(gas_pressure_0 * (time_scale / r_ref) ** 2 / rho),
         gas_pressure_velocity_coefficient=(
             (1.0 - 3.0 * gamma) * gas_pressure_0 * time_scale / (r_ref * c * rho)
@@ -73,31 +173,12 @@ def prepare_single_bubble_parameters(
         viscous_coefficient=(4.0 * mu / (rho * r_ref**2) * time_scale),
         acoustic_pressure_scale=((time_scale / r_ref) ** 2 / rho),
         acoustic_pressure_derivative_scale=(time_scale**2 / (c * rho * r_ref)),
-        wall_mach_scale=velocity_scale / c,
-        gas_pressure_exponent=3.0 * gamma,
-        forcing_amplitude=amplitude,
-        forcing_angular_frequency=omega,
-        forcing_phase=phase,
+        wall_mach_scale=(velocity_scale / c),
+        gas_pressure_exponent=(3.0 * gamma),
+        acoustic_field=acoustic_field,
+        reference_radius=r_ref,
+        reference_frequency=f_ref,
     )
-
-
-def _homogeneous_pressure(
-    t: FloatArray,
-    params: PreparedSingleBubbleParameters,
-) -> tuple[FloatArray, FloatArray]:
-    """Return acoustic pressure and its physical-time derivative.
-
-    ``t`` is the dimensionless acoustic-cycle time tau = f * t_phys.
-    """
-    theta = 2.0 * np.pi * t + params.forcing_phase
-
-    pressure = params.forcing_amplitude * np.sin(theta)
-
-    pressure_time_derivative = (
-        params.forcing_amplitude * params.forcing_angular_frequency * np.cos(theta)
-    )
-
-    return pressure, pressure_time_derivative
 
 
 def single_bubble_rhs(
@@ -118,29 +199,16 @@ def single_bubble_rhs(
     R = y[:, 0]
     U = y[:, 1]
 
-    inv_R = 1.0 / R
-
-    # Polytropic gas-pressure contribution.
-    gas_term = (params.equilibrium_radius_ratio * inv_R) ** params.gas_pressure_exponent
-
-    pressure, pressure_time_derivative = _homogeneous_pressure(
+    field_state = evaluate_acoustic_field(
         t,
-        params,
+        np.zeros((R.shape[0], 3)),
+        params.acoustic_field,
     )
 
-    numerator = (
-        (params.gas_pressure_coefficient + params.gas_pressure_velocity_coefficient * U) * gas_term
-        - params.static_pressure_coefficient * (1.0 + params.wall_mach_scale * U)
-        - params.surface_tension_coefficient * inv_R
-        - params.viscous_coefficient * U * inv_R
-        - 1.5 * (1.0 - params.wall_mach_scale * U / 3.0) * U**2
-        - (1.0 + params.wall_mach_scale * U) * params.acoustic_pressure_scale * pressure
-        - params.acoustic_pressure_derivative_scale * pressure_time_derivative * R
-    )
+    pressure = field_state.pressure
+    pressure_time_derivative = field_state.pressure_time_derivative
 
-    denominator = (
-        R - params.wall_mach_scale * R * U + params.viscous_coefficient * params.wall_mach_scale
-    )
+    numerator, denominator = keller_miksis_terms(R, U, pressure, pressure_time_derivative, params)
 
     dydt = np.empty_like(y)
 

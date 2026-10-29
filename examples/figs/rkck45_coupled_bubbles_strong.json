@@ -1,15 +1,15 @@
 {
-  "amplitude_bar": 1.5,
+  "amplitude_bar": 0.3,
   "example": "rkck45_coupled_bubbles",
   "figure": "rkck45_coupled_bubbles_strong.png",
-  "figure_sha256": "4d93d44ec17762dc7b30cf1fe477c754ae9b44a7c924a7773fdf0a4f2b338798",
+  "figure_sha256": "4f94cc5607373093d10c35e0fee571823523bb8bee3923ff700f07360aba8efa",
   "frequency_khz": 25.0,
-  "generated_utc": "2026-10-21T15:05:56.104532+00:00",
-  "git_commit": "9b69d2c0c6f1cd87e5e65f8314f631e088af9ecb",
-  "git_dirty": true,
+  "generated_utc": "2026-10-28T18:40:52.942265+00:00",
+  "git_commit": "2294d4da2d2cffa2f444d7ad955fc23ddb098925",
+  "git_dirty": false,
   "interaction": "instantaneous pressure coupling",
   "model": "fixed-position coupled Keller-Miksis radial dynamics",
-  "positions_dimensionless": [
+  "positions_x_over_lambda": [
     0.0,
     0.02
   ],
@@ -20,20 +20,20 @@
   "reference_radius_micron": 49.99999999999999,
   "response": {
     "max_abs_wall_mach": [
-      0.39220501291654575,
-      0.3922050129163129
+      0.0013094391187782907,
+      0.0013094391187782907
     ],
     "max_abs_wall_velocity_m_per_s": [
-      588.3075193748186,
-      588.3075193744693
+      1.964158678167436,
+      1.964158678167436
     ],
     "radius_max_over_equilibrium": [
-      3.347855462394145,
-      3.3478554623211028
+      1.1415586314778325,
+      1.1415586314778325
     ],
     "radius_min_over_equilibrium": [
-      0.1117185314222348,
-      0.1117185314222438
+      0.891522040595808,
+      0.891522040595808
     ]
   },
   "solver": {
@@ -46,7 +46,7 @@
     "rtol": 1e-09
   },
   "statistics": {
-    "accepted_steps": 3113,
-    "rejected_steps": 121
+    "accepted_steps": 1973,
+    "rejected_steps": 67
   }
 }

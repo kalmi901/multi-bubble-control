@@ -1,0 +1,53 @@
+{
+  "acoustic_field": "plane standing wave",
+  "amplitude_bar": 0.4,
+  "example": "rkck45_translating_bubble",
+  "figure": "rkck45_translating_bubble_3d.png",
+  "figure_sha256": "f280fafc19a2ca35eba366a6bafeb7fa9928e28abd2869e50438b8732010b3c6",
+  "frequency_khz": 25.0,
+  "generated_utc": "2026-10-29T08:42:00.051020+00:00",
+  "git_commit": "2294d4da2d2cffa2f444d7ad955fc23ddb098925",
+  "git_dirty": false,
+  "initial_displacement_over_wavelength": 0.01,
+  "initial_position_over_wavelength": [
+    0.002672612419124244,
+    0.005345224838248488,
+    0.008017837257372732
+  ],
+  "integration_end_cycles": 2000.0,
+  "model": "single-bubble Keller-Miksis radial dynamics with 3D translational motion",
+  "radius_micron": 114.89863014451562,
+  "reference_radius_micron": 114.89863014451562,
+  "relative_frequency": 0.8699999999999999,
+  "response": {
+    "final_position_over_wavelength": [
+      0.10114452882610304,
+      0.2022890576522061,
+      0.30343358647831736
+    ],
+    "final_projected_position_over_wavelength": 0.37844817341396497,
+    "max_abs_wall_mach": 0.03893764636651235,
+    "max_abs_wall_velocity_m_per_s": 58.406469549768524,
+    "max_transverse_displacement_over_wavelength": 5.465470339361514e-15,
+    "radius_max_over_equilibrium": 2.223008799197182,
+    "radius_min_over_equilibrium": 0.30266133854885297
+  },
+  "solver": {
+    "atol": 1e-10,
+    "initial_step": 0.001,
+    "max_steps": 1000000,
+    "name": "RKCK45",
+    "rtol": 1e-09
+  },
+  "standing_wave_direction": [
+    0.2672612419124244,
+    0.5345224838248488,
+    0.8017837257372732
+  ],
+  "statistics": {
+    "accepted_steps": 264966,
+    "rejected_steps": 7489
+  },
+  "translation_model": "primary Bjerknes force with Stokes drag",
+  "wavelength_m": 0.06
+}

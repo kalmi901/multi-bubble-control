@@ -4,7 +4,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from multibubble.integrators import solve_rkck45
-from multibubble.physics import AcousticForcing, MaterialProperties
+from multibubble.physics import MaterialProperties
+from multibubble.physics.acoustic_field import AcousticField, UniformHarmonic
+from multibubble.physics.common import ReferenceScales
 from multibubble.physics.single_bubble import (
     BubbleParameters,
     prepare_single_bubble_parameters,
@@ -43,14 +45,26 @@ def main():
 
     bubble = BubbleParameters(equilibrium_radius=args.radius * 1e-6)
 
-    forcing = AcousticForcing(
-        pressure_amplitude=args.amplitude * 1e5, frequency=args.frequency * 1e3
+    frequency = args.frequency * 1e3
+    reference_radius = (args.ref_radius if args.ref_radius is not None else args.radius) * 1e-6
+
+    field = AcousticField(
+        components=(
+            UniformHarmonic(
+                pressure_amplitude=args.amplitude * 1e5,
+                frequency=frequency,
+            ),
+        )
     )
 
-    reference_radius = (args.ref_radius if args.ref_radius is not None else args.radius) * 1e-6
+    reference = ReferenceScales(
+        radius=reference_radius,
+        frequency=frequency,
+    )
+
     y0 = np.array([[1.0 * bubble.equilibrium_radius / reference_radius, 0.0]])  # Initial Conditions
 
-    params = prepare_single_bubble_parameters(material, bubble, forcing, reference_radius)
+    params = prepare_single_bubble_parameters(material, bubble, field, reference, 1)
 
     _, _, info = solve_rkck45(
         single_bubble_rhs,
@@ -71,10 +85,10 @@ def main():
 
     print(f"Accepted steps : {info['n_accepted'][0]}")
     print(f"Rejected steps : {info['n_rejected'][0]}")
-    velocity_scale = reference_radius * forcing.frequency
+    velocity_scale = reference_radius * reference.frequency
 
-    radius_min_over_equilibrium = np.min(y[:, 0]) / params.equilibrium_radius_ratio
-    radius_max_over_equilibrium = np.max(y[:, 0]) / params.equilibrium_radius_ratio
+    radius_min_over_equilibrium = np.min(y[:, 0]) / params.equilibrium_radius_ratio[0]
+    radius_max_over_equilibrium = np.max(y[:, 0]) / params.equilibrium_radius_ratio[0]
 
     print(f"R_min / R0 : {radius_min_over_equilibrium:.6f}")
     print(f"R_max / R0 : {radius_max_over_equilibrium:.6f}")

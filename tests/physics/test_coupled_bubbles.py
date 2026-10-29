@@ -1,7 +1,14 @@
 import numpy as np
 from numpy.testing import assert_allclose
 
-from multibubble.physics import AcousticForcing, MaterialProperties
+from multibubble.physics import MaterialProperties
+from multibubble.physics.acoustic_field import (
+    AcousticField,
+    PlaneStandingWave,
+    UniformHarmonic,
+    evaluate_acoustic_field,
+)
+from multibubble.physics.common import ReferenceScales
 from multibubble.physics.coupled_bubbles import (
     CoupledBubblesParameters,
     _assemble_radial_coupling_system,
@@ -50,37 +57,26 @@ def test_prepare_supports_environment_and_bubble_specific_parameters():
         position=position,
     )
 
-    forcing = AcousticForcing(
-        pressure_amplitude=np.array(
-            [0.1e5, 0.2e5, 0.3e5],
-            dtype=np.float64,
-        ),
-        frequency=np.array(
-            [20e3, 25e3, 30e3],
-            dtype=np.float64,
-        ),
+    field = AcousticField(
+        components=(
+            UniformHarmonic(
+                pressure_amplitude=np.array([0.1e5, 0.2e5, 0.3e5], dtype=np.float64),
+                frequency=np.array([20e3, 25e3, 30e3], dtype=np.float64),
+            ),
+        )
     )
 
-    reference_radius = np.array(
-        [50e-6, 75e-6, 100e-6],
-        dtype=np.float64,
+    reference = ReferenceScales(
+        radius=np.array([50e-6, 75e-6, 100e-6]), frequency=field.components[0].frequency
     )
 
-    params = prepare_coupled_bubbles_parameters(
-        material,
-        bubbles,
-        forcing,
-        reference_radius,
-    )
+    params = prepare_coupled_bubbles_parameters(material, bubbles, field, reference, n_envs=3)
 
-    assert params.equilibrium_radius_ratio.shape == (3, 2)
-    assert params.gas_pressure_coefficient.shape == (3, 2)
+    assert np.shape(params.equilibrium_radius_ratio) == (3, 2)
+    assert np.shape(params.gas_pressure_coefficient) == (3, 2)
 
-    assert params.static_pressure_coefficient.shape == (3, 1)
-    assert params.wall_mach_scale.shape == (3, 1)
-
-    assert params.forcing_amplitude.shape == (3, 1)
-    assert params.forcing_angular_frequency.shape == (3, 1)
+    assert np.shape(params.static_pressure_coefficient) == (3, 1)
+    assert np.shape(params.wall_mach_scale) == (3, 1)
 
     assert params.position.shape == (3, 2, 1)
     assert_allclose(
@@ -95,7 +91,7 @@ def test_prepare_broadcasts_shared_bubble_parameters_across_environments():
     equilibrium_radius = np.array(
         [10e-6, 20e-6],
         dtype=np.float64,
-    )  # shape (N,)
+    )  # shared across environments: (N,)
 
     position = np.array(
         [
@@ -103,69 +99,91 @@ def test_prepare_broadcasts_shared_bubble_parameters_across_environments():
             [1.0],
         ],
         dtype=np.float64,
-    )  # shape (N, D)
+    )  # shared across environments: (N, D)
 
     bubbles = CoupledBubblesParameters(
         equilibrium_radius=equilibrium_radius,
         position=position,
     )
 
-    forcing = AcousticForcing(
-        pressure_amplitude=np.array(
-            [0.1e5, 0.2e5, 0.3e5],
-            dtype=np.float64,
-        ),
-        frequency=np.array(
-            [20e3, 25e3, 30e3],
-            dtype=np.float64,
-        ),
+    # Environment-specific forcing only.
+    field = AcousticField(
+        components=(
+            UniformHarmonic(
+                pressure_amplitude=np.array(
+                    [0.1e5, 0.2e5, 0.3e5],
+                    dtype=np.float64,
+                ),
+                frequency=25e3,
+            ),
+        )
     )
 
-    reference_radius = np.array(
-        [50e-6, 75e-6, 100e-6],
-        dtype=np.float64,
+    # Shared reference scales.
+    reference = ReferenceScales(
+        radius=50e-6,
+        frequency=25e3,
     )
 
     params = prepare_coupled_bubbles_parameters(
         material,
         bubbles,
-        forcing,
-        reference_radius,
+        field,
+        reference,
+        n_envs=3,
     )
+
+    # ---------------------------------------------------------
+    # Bubble-scoped quantities are canonicalized to (E, N)
+    # ---------------------------------------------------------
 
     assert params.equilibrium_radius_ratio.shape == (3, 2)
 
-    expected_radius_ratio = equilibrium_radius[None, :] / reference_radius[:, None]
+    expected_radius_ratio = equilibrium_radius / reference.radius
 
     assert_allclose(
         params.equilibrium_radius_ratio,
-        expected_radius_ratio,
+        np.broadcast_to(
+            expected_radius_ratio,
+            (3, 2),
+        ),
     )
 
     assert params.gas_pressure_coefficient.shape == (3, 2)
+    assert params.gas_pressure_velocity_coefficient.shape == (3, 2)
 
-    assert params.static_pressure_coefficient.shape == (3, 1)
-    assert params.wall_mach_scale.shape == (3, 1)
+    # ---------------------------------------------------------
+    # Shared environment parameters remain scalar Parameters
+    # ---------------------------------------------------------
 
-    assert params.forcing_amplitude.shape == (3, 1)
-    assert params.forcing_angular_frequency.shape == (3, 1)
+    assert np.shape(params.static_pressure_coefficient) == ()
+    assert np.shape(params.surface_tension_coefficient) == ()
+    assert np.shape(params.viscous_coefficient) == ()
+
+    assert np.shape(params.acoustic_pressure_scale) == ()
+    assert np.shape(params.acoustic_pressure_derivative_scale) == ()
+    assert np.shape(params.wall_mach_scale) == ()
+    assert np.shape(params.gas_pressure_exponent) == ()
+
+    assert np.shape(params.reference_radius) == ()
+    assert np.shape(params.reference_frequency) == ()
+
+    # ---------------------------------------------------------
+    # Geometry is canonicalized to (E, N, D)
+    # ---------------------------------------------------------
 
     assert params.position.shape == (3, 2, 1)
 
     assert_allclose(
-        params.position[0],
-        position,
+        params.position,
+        np.broadcast_to(
+            position,
+            (3, 2, 1),
+        ),
     )
 
-    assert_allclose(
-        params.position[1],
-        position,
-    )
-
-    assert_allclose(
-        params.position[2],
-        position,
-    )
+    # Coupling matrix is always system-scoped.
+    assert params.radial_coupling.shape == (3, 2, 2)
 
 
 def test_rhs_preserves_state_shape_and_radius_derivative_equals_wall_velocity():
@@ -186,28 +204,20 @@ def test_rhs_preserves_state_shape_and_radius_derivative_equals_wall_velocity():
         ),
     )
 
-    forcing = AcousticForcing(
-        pressure_amplitude=np.array(
-            [0.2e5, 0.4e5],
-            dtype=np.float64,
-        ),
-        frequency=np.array(
-            [20e3, 30e3],
-            dtype=np.float64,
-        ),
+    field = AcousticField(
+        components=(
+            UniformHarmonic(
+                pressure_amplitude=np.array([0.2e5, 0.4e5], dtype=np.float64),
+                frequency=np.array([20e3, 30e3], dtype=np.float64),
+            ),
+        )
     )
 
-    reference_radius = np.array(
-        [50e-6, 70e-6],
-        dtype=np.float64,
+    reference = ReferenceScales(
+        radius=np.array([50e-6, 70e-6], dtype=np.float64), frequency=field.components[0].frequency
     )
 
-    params = prepare_coupled_bubbles_parameters(
-        material,
-        bubbles,
-        forcing,
-        reference_radius,
-    )
+    params = prepare_coupled_bubbles_parameters(material, bubbles, field, reference, 2)
 
     y = np.array(
         [
@@ -269,25 +279,19 @@ def test_unforced_equilibrium_is_stationary_for_multiple_bubbles():
         ),
     )
 
-    forcing = AcousticForcing(
-        pressure_amplitude=0.0,
-        frequency=np.array(
-            [20e3, 30e3],
-            dtype=np.float64,
-        ),
+    field = AcousticField(
+        components=(
+            UniformHarmonic(
+                pressure_amplitude=0, frequency=np.array([20e3, 30e3], dtype=np.float64)
+            ),
+        )
     )
 
-    reference_radius = np.array(
-        [60e-6, 80e-6],
-        dtype=np.float64,
+    reference = ReferenceScales(
+        radius=np.array([60e-6, 80e-6], dtype=np.float64), frequency=field.components[0].frequency
     )
 
-    params = prepare_coupled_bubbles_parameters(
-        material,
-        bubbles,
-        forcing,
-        reference_radius,
-    )
+    params = prepare_coupled_bubbles_parameters(material, bubbles, field, reference, 2)
 
     y = np.stack(
         (
@@ -331,20 +335,17 @@ def test_single_bubble_limit_matches_single_bubble_rhs():
         dtype=np.float64,
     )
 
-    forcing = AcousticForcing(
-        pressure_amplitude=np.array(
-            [0.15e5, 0.35e5, 0.55e5],
-            dtype=np.float64,
-        ),
-        frequency=np.array(
-            [20e3, 25e3, 31e3],
-            dtype=np.float64,
-        ),
-        phase=np.array(
-            [0.1, 0.3, -0.2],
-            dtype=np.float64,
-        ),
+    field = AcousticField(
+        components=(
+            UniformHarmonic(
+                pressure_amplitude=np.array([0.15e5, 0.35e5, 0.55e5], dtype=np.float64),
+                frequency=np.array([20e3, 25e3, 31e3], dtype=np.float64),
+                temporal_phase=np.array([0.1, 0.3, -0.2], dtype=np.float64),
+            ),
+        )
     )
+
+    reference = ReferenceScales(radius=reference_radius, frequency=field.components[0].frequency)
 
     single_bubble = BubbleParameters(
         equilibrium_radius=equilibrium_radius,
@@ -355,18 +356,10 @@ def test_single_bubble_limit_matches_single_bubble_rhs():
         position=np.array([[0.0]], dtype=np.float64),
     )
 
-    single_params = prepare_single_bubble_parameters(
-        material,
-        single_bubble,
-        forcing,
-        reference_radius,
-    )
+    single_params = prepare_single_bubble_parameters(material, single_bubble, field, reference, 3)
 
     coupled_params = prepare_coupled_bubbles_parameters(
-        material,
-        coupled_bubbles,
-        forcing,
-        reference_radius,
+        material, coupled_bubbles, field, reference, 3
     )
 
     t = np.array(
@@ -501,19 +494,11 @@ def test_radial_coupling_excludes_self_interaction():
         ),
     )
 
-    forcing = AcousticForcing(
-        pressure_amplitude=0.3e5,
-        frequency=25e3,
-    )
+    field = AcousticField(components=(UniformHarmonic(pressure_amplitude=0.3e5, frequency=25e3),))
 
-    reference_radius = 50e-6
+    reference = ReferenceScales(radius=50e-6, frequency=25e3)
 
-    params = prepare_coupled_bubbles_parameters(
-        material,
-        bubbles,
-        forcing,
-        reference_radius,
-    )
+    params = prepare_coupled_bubbles_parameters(material, bubbles, field, reference, 1)
 
     coupling = params.radial_coupling
 
@@ -533,13 +518,10 @@ def test_radial_coupling_excludes_self_interaction():
         atol=0.0,
     )
 
-    # x* = x / (c/f), therefore
-    # K_ij = (R_ref / (c/f)) / |x_i* - x_j*|.
-    reference_length = material.sound_speed / forcing.frequency
+    # x* = x / R_ref, therefore
+    # K_ij = (R_ref / R_ref) / |x_i* - x_j*|.
 
-    expected_k01 = (
-        reference_radius / reference_length / abs(bubbles.position[0, 0] - bubbles.position[1, 0])
-    )
+    expected_k01 = 1.0 / abs(bubbles.position[0, 0] - bubbles.position[1, 0])
 
     assert_allclose(
         coupling[0, 0, 1],
@@ -553,4 +535,88 @@ def test_radial_coupling_excludes_self_interaction():
         expected_k01,
         rtol=1e-14,
         atol=0.0,
+    )
+
+
+def test_coupled_bubbles_evaluate_spatial_acoustic_field_at_each_bubble():
+    material = MaterialProperties()
+
+    pressure_amplitude = 1.0e5
+    frequency = 25e3
+    reference_radius = 50e-6
+
+    # x_node = lambda / 4
+    #
+    # With x* = x / R_ref:
+    #
+    # x*_node = c / (4 f R_ref)
+    #
+    # therefore k* x* = pi / 2.
+    node_position = material.sound_speed / (4.0 * frequency * reference_radius)
+
+    bubbles = CoupledBubblesParameters(
+        equilibrium_radius=np.array(
+            [50e-6, 50e-6],
+            dtype=np.float64,
+        ),
+        position=np.array(
+            [
+                [0.0],  # pressure antinode
+                [node_position],  # pressure node for f = f_ref
+            ],
+            dtype=np.float64,
+        ),
+    )
+
+    field = AcousticField(
+        components=(
+            PlaneStandingWave(
+                pressure_amplitude=pressure_amplitude,
+                frequency=frequency,
+                direction=np.array([1.0, 0.0, 0.0]),
+            ),
+        )
+    )
+
+    reference = ReferenceScales(
+        radius=reference_radius,
+        frequency=frequency,
+    )
+
+    params = prepare_coupled_bubbles_parameters(
+        material,
+        bubbles,
+        field,
+        reference,
+        n_envs=1,
+    )
+
+    # tau = 1/4:
+    # sin(2*pi*tau) = 1
+    #
+    # Bubble 0:
+    # x* = 0 -> cos(k*x) = 1 -> p = P_A
+    #
+    # Bubble 1:
+    # x* = c / (4 f R_ref)
+    # k* x* = pi/2 -> p = 0
+    field_state = evaluate_acoustic_field(
+        t=np.array([0.25]),
+        position=params.position,
+        field=params.acoustic_field,
+    )
+
+    assert field_state.pressure.shape == (1, 2)
+
+    assert_allclose(
+        field_state.pressure[0, 0],
+        pressure_amplitude,
+        rtol=1e-14,
+        atol=1e-9,
+    )
+
+    assert_allclose(
+        field_state.pressure[0, 1],
+        0.0,
+        atol=1e-9,
     )
