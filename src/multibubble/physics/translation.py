@@ -30,9 +30,9 @@ def translational_acceleration(
         dtype=np.float64,
     )[..., np.newaxis]
 
-    R_column = R[:, np.newaxis]
-    U_column = U[:, np.newaxis]
-    inv_R_column = inv_R[:, np.newaxis]
+    R_column = R[..., np.newaxis]
+    U_column = U[..., np.newaxis]
+    inv_R_column = inv_R[..., np.newaxis]
 
     # V is dimensionless; fluid_velocity is physical [m/s].
     relative_velocity = V * velocity_scale - fluid_velocity
