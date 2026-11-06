@@ -7,6 +7,7 @@ from numpy.typing import NDArray
 FloatArray = NDArray[np.float64]
 BoolArray = NDArray[np.bool_]
 RHS = Callable[..., FloatArray]
+Event = Callable[..., FloatArray]
 
 
 def _expand_env_vector(values: FloatArray, ndim: int) -> FloatArray:
@@ -36,6 +37,32 @@ def _evaluate_rhs(
         raise FloatingPointError("RHS returned non-finite values.")
 
     return dydt
+
+
+def _evaluate_event(
+    event: Event,
+    t: FloatArray,
+    y: FloatArray,
+    args: tuple[Any, ...],
+) -> FloatArray:
+    """Evaluate and validate one terminal event function."""
+    values = np.asarray(
+        event(t, y, *args),
+        dtype=np.float64,
+    )
+
+    expected_shape = (y.shape[0],)
+
+    if values.shape != expected_shape:
+        raise ValueError(
+            "Event output must contain one scalar per environment: "
+            f"expected {expected_shape}, got {values.shape}."
+        )
+
+    if not np.all(np.isfinite(values)):
+        raise FloatingPointError("Event returned non-finite values.")
+
+    return values
 
 
 def rkck45_step(
@@ -307,6 +334,83 @@ def adaptive_rkck45_step(
     return y_trial, h_new, accepted, error_norm
 
 
+def _localize_terminal_event(
+    rhs: RHS,
+    event: Event,
+    t: FloatArray,
+    y: FloatArray,
+    h: FloatArray,
+    event_mask: BoolArray,
+    event_value: FloatArray,
+    *,
+    args: tuple[Any, ...],
+    event_time_tolerance: float,
+    max_event_iterations: int,
+) -> tuple[FloatArray, FloatArray, FloatArray, FloatArray]:
+    """Locate a terminal event inside accepted RKCK45 steps.
+
+    The event defines a valid domain through ``event > 0``. A detected
+    positive-to-nonpositive crossing is bracketed and refined by bisection.
+    The returned state is always taken from the positive (safe) side.
+    """
+    left_h = np.zeros_like(h)
+    right_h = np.where(
+        event_mask,
+        h,
+        0.0,
+    )
+
+    left_y = y.copy()
+    left_value = event_value.copy()
+
+    for _ in range(max_event_iterations):
+        unresolved = event_mask & ((right_h - left_h) > event_time_tolerance)
+
+        if not np.any(unresolved):
+            break
+
+        mid_h = np.zeros_like(h)
+        mid_h[unresolved] = 0.5 * (left_h[unresolved] + right_h[unresolved])
+
+        y_mid, _ = rkck45_step(
+            rhs,
+            t,
+            y,
+            mid_h,
+            args=args,
+        )
+
+        t_mid = t + mid_h
+
+        mid_value = _evaluate_event(
+            event,
+            t_mid,
+            y_mid,
+            args,
+        )
+
+        safe = unresolved & (mid_value > 0.0)
+        crossed = unresolved & ~safe
+
+        left_h[safe] = mid_h[safe]
+        left_y[safe] = y_mid[safe]
+        left_value[safe] = mid_value[safe]
+
+        right_h[crossed] = mid_h[crossed]
+
+    unresolved = event_mask & ((right_h - left_h) > event_time_tolerance)
+
+    if np.any(unresolved):
+        indices = np.flatnonzero(unresolved)
+        raise RuntimeError(
+            f"Terminal event localization did not converge for environment(s) {indices.tolist()}."
+        )
+
+    event_t = t + left_h
+
+    return event_t, left_y, left_value, left_h
+
+
 def solve_rkck45(
     rhs,
     y0,
@@ -319,9 +423,17 @@ def solve_rkck45(
     error_reducer=max_error_reducer,
     max_steps=100_000,
     store_trajectory=False,
+    event=None,
+    event_time_tolerance=1e-10,
+    max_event_iterations=64,
 ):
-    """Integrate a batch of ODE systems using adaptive RKCK45."""
+    """Integrate a batch of ODE systems using adaptive RKCK45.
 
+    When ``event`` is provided, it must return one scalar per environment.
+    Positive values denote the valid integration domain. A
+    positive-to-nonpositive crossing terminates that environment after
+    localizing the event from the safe side.
+    """
     y = np.asarray(y0, dtype=np.float64).copy()
 
     if y.ndim < 1:
@@ -337,6 +449,15 @@ def solve_rkck45(
 
     if t_end <= t_start:
         raise ValueError("t_span must satisfy t_end > t_start.")
+
+    if not np.isfinite(event_time_tolerance):
+        raise ValueError("event_time_tolerance must be finite.")
+
+    if event_time_tolerance <= 0.0:
+        raise ValueError("event_time_tolerance must be positive.")
+
+    if max_event_iterations < 1:
+        raise ValueError("max_event_iterations must be positive.")
 
     n_envs = y.shape[0]
 
@@ -371,6 +492,39 @@ def solve_rkck45(
     if np.any(h <= 0.0):
         raise ValueError("initial_step must be positive.")
 
+    terminated = np.zeros(
+        n_envs,
+        dtype=bool,
+    )
+
+    event_triggered = np.zeros(
+        n_envs,
+        dtype=bool,
+    )
+
+    event_time = np.full(
+        n_envs,
+        np.nan,
+        dtype=np.float64,
+    )
+
+    if event is not None:
+        event_value = _evaluate_event(
+            event,
+            t,
+            y,
+            args,
+        )
+
+        initial_event = event_value <= 0.0
+
+        terminated[initial_event] = True
+        event_triggered[initial_event] = True
+        event_time[initial_event] = t_start
+
+    else:
+        event_value = None
+
     if store_trajectory:
         trajectory_t = [[t_start] for _ in range(n_envs)]
         trajectory_y = [[y[env].copy()] for env in range(n_envs)]
@@ -381,7 +535,7 @@ def solve_rkck45(
     for iteration in range(max_steps):
         remaining = t_end - t
 
-        active = remaining > 0.0
+        active = (remaining > 0.0) & ~terminated
 
         if not np.any(active):
             if store_trajectory and trajectory_t is not None and trajectory_y is not None:
@@ -397,6 +551,8 @@ def solve_rkck45(
                 "n_rejected": n_rejected,
                 "n_iterations": iteration,
                 "trajectory": trajectory,
+                "event_triggered": event_triggered,
+                "event_time": event_time,
             }
 
             return t, y, info
@@ -407,8 +563,9 @@ def solve_rkck45(
             remaining,
         )
 
-        # Finished environments remain in the batch because this keeps
-        # the RHS batch shape and environment-specific args unchanged.
+        # Finished or terminated environments remain in the batch because
+        # this keeps the RHS batch shape and environment-specific args
+        # unchanged.
         h_trial = np.where(
             active,
             h_trial,
@@ -437,25 +594,103 @@ def solve_rkck45(
         accepted &= active
 
         rejected = active & ~accepted
-
-        n_accepted[accepted] += 1
         n_rejected[rejected] += 1
 
-        # Remember which accepted steps were endpoint-limited.
-        endpoint_step = accepted & (h_trial >= remaining)
+        event_hit = np.zeros(
+            n_envs,
+            dtype=bool,
+        )
 
-        # Commit only accepted systems.
-        y[accepted] = y_trial[accepted]
-        t[accepted] += h_trial[accepted]
+        event_trial_value = None
+        event_t = None
+        event_y = None
+        event_safe_value = None
+        event_step = None
+
+        if event is not None and event_value is not None and np.any(accepted):
+            event_eval_t = np.where(
+                accepted,
+                t + h_trial,
+                t,
+            )
+
+            event_eval_y = y.copy()
+            event_eval_y[accepted] = y_trial[accepted]
+
+            event_trial_value = _evaluate_event(
+                event,
+                event_eval_t,
+                event_eval_y,
+                args,
+            )
+
+            event_hit = accepted & (event_value > 0.0) & (event_trial_value <= 0.0)
+
+            if np.any(event_hit):
+                (
+                    event_t,
+                    event_y,
+                    event_safe_value,
+                    event_step,
+                ) = _localize_terminal_event(
+                    rhs,
+                    event,
+                    t,
+                    y,
+                    h_trial,
+                    event_hit,
+                    event_value,
+                    args=args,
+                    event_time_tolerance=event_time_tolerance,
+                    max_event_iterations=max_event_iterations,
+                )
+
+        normal_accepted = accepted & ~event_hit
+
+        n_accepted[normal_accepted] += 1
+
+        # Remember which normal accepted steps were endpoint-limited.
+        endpoint_step = normal_accepted & (h_trial >= remaining)
+
+        # Commit normal accepted systems.
+        y[normal_accepted] = y_trial[normal_accepted]
+        t[normal_accepted] += h_trial[normal_accepted]
 
         # Force exact endpoint equality instead of relying on
         # floating-point addition to reproduce t_end exactly.
         t[endpoint_step] = t_end
 
+        if event is not None and event_value is not None and event_trial_value is not None:
+            event_value[normal_accepted] = event_trial_value[normal_accepted]
+
+        # Commit terminal event states from the safe side of the bracket.
+        if np.any(event_hit):
+            assert event_t is not None
+            assert event_y is not None
+            assert event_safe_value is not None
+            assert event_step is not None
+            assert event_value is not None
+
+            event_advanced = event_hit & (event_step > 0.0)
+            n_accepted[event_advanced] += 1
+
+            y[event_hit] = event_y[event_hit]
+            t[event_hit] = event_t[event_hit]
+            event_value[event_hit] = event_safe_value[event_hit]
+
+            terminated[event_hit] = True
+            event_triggered[event_hit] = True
+            event_time[event_hit] = t[event_hit]
+
         if store_trajectory and trajectory_t is not None and trajectory_y is not None:
-            for env in np.flatnonzero(accepted):
-                trajectory_t[env].append(t[env])
-                trajectory_y[env].append(y[env].copy())
+            committed = normal_accepted | event_hit
+
+            for env in np.flatnonzero(committed):
+                # An event may lie within event_time_tolerance of the
+                # current state. Avoid storing duplicate time points.
+                if trajectory_t[env][-1] < t[env]:
+                    trajectory_t[env].append(t[env])
+                    trajectory_y[env].append(y[env].copy())
 
         # Accepted and rejected active systems both receive their
         # individually suggested next step size.
