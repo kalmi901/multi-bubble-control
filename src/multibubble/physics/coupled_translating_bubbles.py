@@ -2,6 +2,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from .__collision import DEFAULT_COLLISION_SAFETY_FACTOR, _minimum_pairwise_collision_margin
 from ._batching import as_bubble_matrix, as_env_parameter_column
 from .acoustic_field import (
     AcousticField,
@@ -498,6 +499,32 @@ def _assemble_coupling_system(
         rhs[:, component_slice] = total_translation_rhs[..., component]
 
     return matrix, rhs
+
+
+def coupled_translating_bubble_collision_event(
+    t: FloatArray,
+    y: FloatArray,
+    params: PreparedCoupledTranslatingBubbleParameters,
+    *,
+    safety_factor: float = DEFAULT_COLLISION_SAFETY_FACTOR,
+) -> FloatArray:
+    """Return the minimum collision margin for translating bubbles.
+
+    Positive values denote a valid configuration.
+    Zero or negative values denote the terminal collision region.
+    """
+
+    if y.ndim != 3 or y.shape[-1] != 8:
+        raise ValueError(f"State must have shape (n_envs, n_bubbles, 8), got {y.shape}.")
+
+    radius = y[..., 0]
+    position = y[..., 1:4]
+
+    return _minimum_pairwise_collision_margin(
+        radius,
+        position,
+        safety_factor=safety_factor,
+    )
 
 
 def coupled_translating_bubble_rhs(

@@ -2,6 +2,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from .__collision import DEFAULT_COLLISION_SAFETY_FACTOR, _minimum_pairwise_collision_margin
 from ._batching import (
     as_bubble_matrix,
     as_env_parameter_column,
@@ -288,6 +289,31 @@ def _assemble_radial_coupling_system(
     rhs = inverse_denominator * (numerator - explicit_coupling)
 
     return matrix, rhs
+
+
+def coupled_bubbles_collision_event(
+    t: FloatArray,
+    y: FloatArray,
+    params: PreparedCoupledBubblesParameters,
+    *,
+    safety_factor: float = DEFAULT_COLLISION_SAFETY_FACTOR,
+) -> FloatArray:
+    """Return the minimum collision margin for fixed-position bubbles.
+
+    Positive values denote a valid configuration.
+    Zero or negative values denote the terminal collision region.
+    """
+
+    if y.ndim != 3 or y.shape[-1] != 2:
+        raise ValueError(f"State must have shape (n_envs, n_bubbles, 2), got {y.shape}.")
+
+    radius = y[..., 0]
+
+    return _minimum_pairwise_collision_margin(
+        radius,
+        params.position,
+        safety_factor=safety_factor,
+    )
 
 
 def coupled_bubbles_rhs(
