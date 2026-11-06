@@ -9,6 +9,7 @@ from multibubble.physics.acoustic_field import AcousticField, UniformHarmonic
 from multibubble.physics.common import ReferenceScales
 from multibubble.physics.coupled_bubbles import (
     CoupledBubblesParameters,
+    coupled_bubbles_collision_event,
     coupled_bubbles_rhs,
     prepare_coupled_bubbles_parameters,
 )
@@ -98,6 +99,7 @@ def main():
         atol=np.array([1e-10, 1e-10]),
         args=(params,),
         store_trajectory=True,
+        event=coupled_bubbles_collision_event,
     )
 
     trajectory = info["trajectory"]

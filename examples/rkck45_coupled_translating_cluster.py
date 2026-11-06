@@ -10,6 +10,7 @@ from multibubble.physics.acoustic_field import AcousticField, UniformHarmonic
 from multibubble.physics.common import ReferenceScales
 from multibubble.physics.coupled_translating_bubbles import (
     CoupledTranslatingBubbleParameters,
+    coupled_translating_bubble_collision_event,
     coupled_translating_bubble_rhs,
     prepare_coupled_translating_bubble_parameters,
 )
@@ -148,6 +149,7 @@ def main() -> None:
         args=(params,),
         store_trajectory=True,
         max_steps=int(1e6),
+        event=coupled_translating_bubble_collision_event,
     )
 
     elapsed = perf_counter() - start
