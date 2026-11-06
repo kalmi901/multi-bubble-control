@@ -1,3 +1,4 @@
+import argparse
 from time import perf_counter
 
 import matplotlib.pyplot as plt
@@ -6,9 +7,25 @@ import numpy as np
 from multibubble.integrators import solve_rkck45
 
 
+def _parse_args() -> argparse.Namespace:
+    p = argparse.ArgumentParser(description="RKCK45 tolerance sweep")
+    p.add_argument("--omega", type=float, default=1.0, help="Excitation frequency [-]")
+    p.add_argument(
+        "--t_end",
+        type=float,
+        default=20.0,
+        help="Integration domain end in periods",
+    )
+    p.add_argument("--save", type=str, default=None, help="Optional output figure path")
+
+    return p.parse_args()
+
+
 def main():
-    omega = 1.0
-    t_end = 20.0 * np.pi
+    args = _parse_args()
+
+    omega = args.omega
+    t_end = args.t_end * np.pi
 
     y0 = np.array([[1.0, 0.0]])
 
@@ -72,20 +89,32 @@ def main():
     errors = np.asarray(errors)
     accepted_steps = np.asarray(accepted_steps)
 
-    plt.figure()
-    plt.loglog(rtols, errors, "o-")
-    plt.gca().invert_xaxis()
-    plt.xlabel("Relative tolerance")
-    plt.ylabel("Final-state error")
-    plt.title("RKCK45 tolerance convergence")
+    fig, axes = plt.subplots(1, 2, figsize=(12, 5))
+    axes[0].loglog(rtols, errors, "o-")
+    axes[0].invert_xaxis()
+    axes[0].set_xlabel("Relative tolerance")
+    axes[0].set_ylabel("Final-state error")
+    axes[0].set_title("RKCK45 tolerance convergence")
+    axes[0].grid()
+
+    axes[1].loglog(accepted_steps, errors, "o-")
+    axes[1].set_xlabel("Accepted steps")
+    axes[1].set_ylabel("Final-state error")
+    axes[1].set_title("Accuracy vs computational work")
+    axes[1].grid()
     plt.tight_layout()
 
-    plt.figure()
-    plt.loglog(accepted_steps, errors, "o-")
-    plt.xlabel("Accepted steps")
-    plt.ylabel("Final-state error")
-    plt.title("Accuracy vs computational work")
-    plt.tight_layout()
+    if args.save is not None:
+        from tools.figure_io import save_figure_with_metadata
+
+        metadata = {
+            "benchmark": "rkck45_tolerance_sweep",
+            "omega": args.omega,
+            "t_end": args.t_end,
+            "solver": {"name": "RKCK45", "initial_step": 0.2},
+        }
+
+        save_figure_with_metadata(fig, args.save, metadata)
 
     plt.show()
 

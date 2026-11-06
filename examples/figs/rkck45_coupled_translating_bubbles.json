@@ -1,0 +1,46 @@
+{
+  "acoustic_field": "uniform harmonic",
+  "amplitude_bar": 1.2,
+  "example": "rkck45_coupled_translating_pair",
+  "figure": "rkck45_coupled_translating_bubbles.png",
+  "figure_sha256": "2f4b1d19a47d0faae9f1c1d99f0ba3af84266270eec9291f7f47164848a08cba",
+  "frequency_khz": 20.0,
+  "generated_utc": "2026-11-06T16:18:25.626329+00:00",
+  "git_commit": "0fd613cfcd52401b8b8a874d96f1458507ba2000",
+  "git_dirty": true,
+  "initial_center_distance_micron": 199.99999999999997,
+  "integration_end_cycles": 10.0,
+  "model": "coupled radial and 3D translational two-bubble dynamics",
+  "positions_x_over_wavelength": [
+    0.0,
+    0.0026666666666666666
+  ],
+  "radii_micron": [
+    7.0,
+    5.0
+  ],
+  "reference_radius_micron": 5.0,
+  "response": {
+    "final_center_distance_micron": 139.84991008330323,
+    "minimum_surface_gap_micron": 101.05111383840483,
+    "radius_max_over_equilibrium": [
+      4.845691239083851,
+      4.801847942473595
+    ],
+    "radius_min_over_equilibrium": [
+      0.12388321757265142,
+      0.1804039670846816
+    ]
+  },
+  "solver": {
+    "atol": 1e-10,
+    "initial_step": 0.001,
+    "max_steps": 1000000,
+    "name": "RKCK45",
+    "rtol": 1e-09
+  },
+  "statistics": {
+    "accepted_steps": 42913,
+    "rejected_steps": 1302
+  }
+}
