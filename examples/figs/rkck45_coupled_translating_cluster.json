@@ -38,10 +38,10 @@
   "figure": "rkck45_coupled_translating_cluster.png",
   "figure_sha256": "99ce74f82cdb4d08e9543560c21c8d4f4b9e05f7d69154df2ebeb558dca25d30",
   "frequency_khz": 25.0,
-  "generated_utc": "2026-11-06T16:18:39.454459+00:00",
+  "generated_utc": "2026-11-06T17:25:12.721551+00:00",
   "geometry": "4 x 4 x 2 centered Cartesian lattice",
-  "git_commit": "0fd613cfcd52401b8b8a874d96f1458507ba2000",
-  "git_dirty": true,
+  "git_commit": "5b351694b1539469c1faff406a54a4955a7a0646",
+  "git_dirty": false,
   "integration_end_cycles": 5.0,
   "model": "coupled radial and 3D translational multi-bubble dynamics",
   "num_bubbles": 32,
@@ -62,7 +62,7 @@
   "spacing_micron": 600.0,
   "statistics": {
     "accepted_steps": 355,
-    "elapsed_seconds": 11.610045999987051,
+    "elapsed_seconds": 11.59865559998434,
     "rejected_steps": 57
   }
 }

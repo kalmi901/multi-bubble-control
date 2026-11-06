@@ -5,9 +5,9 @@
   "figure": "rkck45_translating_bubble_3d.png",
   "figure_sha256": "f280fafc19a2ca35eba366a6bafeb7fa9928e28abd2869e50438b8732010b3c6",
   "frequency_khz": 25.0,
-  "generated_utc": "2026-11-06T16:15:18.699380+00:00",
-  "git_commit": "0fd613cfcd52401b8b8a874d96f1458507ba2000",
-  "git_dirty": true,
+  "generated_utc": "2026-11-06T17:21:48.096553+00:00",
+  "git_commit": "5b351694b1539469c1faff406a54a4955a7a0646",
+  "git_dirty": false,
   "initial_displacement_over_wavelength": 0.01,
   "initial_position_over_wavelength": [
     0.002672612419124244,

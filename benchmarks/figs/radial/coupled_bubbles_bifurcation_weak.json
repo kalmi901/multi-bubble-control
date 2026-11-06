@@ -3,8 +3,8 @@
   "figure": "coupled_bubbles_bifurcation_weak.png",
   "figure_sha256": "5ab8d1085636294b0cefd427b8b11dfd3342e6b20619b5466d3b76ee8e61438c",
   "frequency_khz": 25.0,
-  "generated_utc": "2026-11-06T16:39:13.293196+00:00",
-  "git_commit": "976b13c72984733bb969ac6cbfdfe6701d3a5484",
+  "generated_utc": "2026-11-06T17:45:39.887281+00:00",
+  "git_commit": "5b351694b1539469c1faff406a54a4955a7a0646",
   "git_dirty": false,
   "interaction": "instantaneous pressure coupling",
   "model": "fixed-position coupled Keller-Miksis radial dynamics",
@@ -34,7 +34,7 @@
   },
   "statistics": {
     "accepted_steps": 18699201,
-    "elapsed_seconds": 937.8568556999671,
+    "elapsed_seconds": 944.4065135000274,
     "rejected_steps": 5412803
   },
   "transient_cycles": 512

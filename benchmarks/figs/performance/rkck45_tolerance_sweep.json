@@ -2,9 +2,9 @@
   "benchmark": "rkck45_tolerance_sweep",
   "figure": "rkck45_tolerance_sweep.png",
   "figure_sha256": "f2d32c5959490a8e9abaa993b6908c7899d97ce589bb4eeca215a11158c12448",
-  "generated_utc": "2026-11-06T16:18:43.345083+00:00",
-  "git_commit": "0fd613cfcd52401b8b8a874d96f1458507ba2000",
-  "git_dirty": true,
+  "generated_utc": "2026-11-06T17:25:16.612180+00:00",
+  "git_commit": "5b351694b1539469c1faff406a54a4955a7a0646",
+  "git_dirty": false,
   "omega": 1.0,
   "solver": {
     "initial_step": 0.2,

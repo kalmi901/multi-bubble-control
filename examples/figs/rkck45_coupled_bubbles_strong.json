@@ -4,9 +4,9 @@
   "figure": "rkck45_coupled_bubbles_strong.png",
   "figure_sha256": "4f94cc5607373093d10c35e0fee571823523bb8bee3923ff700f07360aba8efa",
   "frequency_khz": 25.0,
-  "generated_utc": "2026-11-06T16:08:31.433823+00:00",
-  "git_commit": "0fd613cfcd52401b8b8a874d96f1458507ba2000",
-  "git_dirty": true,
+  "generated_utc": "2026-11-06T17:15:00.777524+00:00",
+  "git_commit": "5b351694b1539469c1faff406a54a4955a7a0646",
+  "git_dirty": false,
   "interaction": "instantaneous pressure coupling",
   "model": "fixed-position coupled Keller-Miksis radial dynamics",
   "positions_x_over_lambda": [
