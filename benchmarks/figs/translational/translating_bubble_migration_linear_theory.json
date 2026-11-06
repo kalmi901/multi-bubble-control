@@ -5,8 +5,8 @@
   "figure": "translating_bubble_migration_linear_theory.png",
   "figure_sha256": "9e8a68671fde0ed81ad82f511bdbe40cc346efa1e172b4ccba471716cb32c5eb",
   "frequency_khz": 25.0,
-  "generated_utc": "2026-10-29T08:35:04.065819+00:00",
-  "git_commit": "2294d4da2d2cffa2f444d7ad955fc23ddb098925",
+  "generated_utc": "2026-11-06T18:03:08.477375+00:00",
+  "git_commit": "5b351694b1539469c1faff406a54a4955a7a0646",
   "git_dirty": false,
   "model": "single-bubble Keller-Miksis radial dynamics with 3D translational motion",
   "num_positions": 33,
@@ -211,7 +211,7 @@
   ],
   "statistics": {
     "accepted_steps": 969906,
-    "elapsed_seconds": 57.47872229991481,
+    "elapsed_seconds": 57.71323029999621,
     "rejected_steps": 25878
   },
   "transient_cycles": 32,

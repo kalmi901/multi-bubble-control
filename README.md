@@ -1,35 +1,105 @@
 # Multi-Bubble Control
 
-**GPU-accelerated multi-bubble dynamics and reinforcement learning framework for collective acoustic bubble control.**
+**Reference bubble-dynamics solver and development framework for GPU-accelerated collective acoustic bubble control.**
 
-> **Development status:** Early-stage research software. The project infrastructure is operational, while the numerical solvers and reinforcement learning components are under development.
+> **Development status:** The NumPy reference-solver milestone is complete. The current implementation provides tested single- and multi-bubble radial/translational dynamics, an adaptive RKCK45 integrator, collision events, reproducible examples, and validation benchmarks. C++/CUDA acceleration and reinforcement-learning integration are the next development stages.
 
 ## Overview
 
-This project aims to develop a computational framework for investigating and controlling the collective dynamics of acoustically driven bubble populations.
+Multi-Bubble Control is a research codebase for investigating the dynamics and control of acoustically driven bubble populations.
 
-The framework combines numerical bubble dynamics, inter-bubble acoustic coupling, GPU acceleration, and reinforcement learning.
+The repository is being developed in layers. The current layer is a CPU/NumPy reference implementation used to define and verify the physical and numerical behavior of the models. Future accelerated implementations can then be compared against this reference before they are used in reinforcement-learning environments.
 
-The initial implementation focuses on a delay-free coupled-bubble model, providing a computationally efficient baseline for collective control experiments.
+The current reference implementation includes:
 
-The primary development goals are:
+- Keller--Miksis single-bubble radial dynamics.
+- Fixed-position coupled radial bubble dynamics with instantaneous pressure coupling.
+- Single-bubble 3D translational dynamics.
+- Coupled radial-translational multi-bubble dynamics.
+- Prescribed uniform harmonic and plane standing-wave acoustic fields.
+- Batched simulation of independent environments.
+- Adaptive Runge--Kutta--Cash--Karp 4(5) integration.
+- Generic terminal-event handling with safe-side event localization.
+- Bubble-collision terminal events for fixed and translating bubble systems.
+- Reproducible examples, numerical benchmarks, and regression tests.
 
-- Implement and validate single- and multi-bubble dynamics.
-- Develop a GPU-accelerated solver for parallel bubble populations.
-- Integrate the solver with PyTorch reinforcement learning environments.
-- Investigate collective control strategies using multi-agent reinforcement learning and population-based training.
-- Evaluate numerical accuracy and computational performance.
+## Reference-solver philosophy
 
-## Current status
+The NumPy implementation is **not intended to be fast or production optimized**. Its purpose is to remain a readable, testable physical and numerical baseline: effectively a numerical oracle against which future C++/CUDA implementations can be checked.
 
-The repository currently provides the initial software development infrastructure:
+Development of the reference code has been substantially **AI-assisted**. Correctness is therefore not inferred from the implementation itself. The behavior is pinned down through automated verification, including analytical test problems, unit and integration tests, comparisons with SciPy solvers, independent legacy regression data, literature-derived reference trajectories, symmetry and limiting-case checks, and reproducible benchmark cases.
 
-- Installable Python package using `pyproject.toml`.
-- Automated Python tests using `pytest`.
-- Code formatting and linting using Ruff and pre-commit.
-- CPU-only continuous integration using GitHub Actions.
+Performance measurements of the NumPy implementation are useful for characterizing the reference workload, but they are not a target for optimization. Performance work belongs to the accelerated backend.
 
-**The numerical simulation and RL components are not yet available in this repository.**
+## Numerical models
+
+### Radial dynamics
+
+Single-bubble radial motion is modeled using a Keller--Miksis-type formulation.
+
+The fixed-position multi-bubble model extends the radial equations with instantaneous inter-bubble pressure coupling and solves the resulting coupled acceleration system at each RHS evaluation.
+
+### Translational dynamics
+
+The translating-bubble models augment the radial state with 3D bubble-center position and velocity.
+
+The current implementation includes primary acoustic forcing, viscous drag, and radial-translational bubble interactions. The fully coupled model assembles and solves the radial/translational acceleration system for the complete bubble population.
+
+### Acoustic forcing
+
+The reference implementation currently supports prescribed:
+
+- uniform harmonic pressure forcing;
+- plane standing waves with arbitrary 3D direction.
+
+Multiple acoustic components can be combined in one field.
+
+### Collision handling
+
+Coupled bubble simulations can terminate before geometric overlap using the generic terminal-event framework.
+
+For each bubble pair, the collision margin is based on the instantaneous center distance and bubble radii,
+
+```math
+g_{ij} = d_{ij} - s_{\mathrm{coll}}(R_i + R_j),
+```
+
+where the default safety factor is slightly greater than unity. The minimum pairwise margin defines the terminal event for each environment.
+
+## Integrator
+
+The reference solver uses an adaptive Runge--Kutta--Cash--Karp 4(5) method with independent error control for batched environments.
+
+The implementation supports:
+
+- scalar or component-wise absolute tolerances;
+- independently evolving step sizes across environments;
+- accepted/rejected-step statistics;
+- optional trajectory storage;
+- generic terminal events;
+- safe-side bisection localization of terminal events.
+
+## Verification
+
+The automated test suite covers both the integrator and the bubble models.
+
+Verification includes:
+
+- analytical exponential-decay, harmonic-oscillator, and non-autonomous ODE problems;
+- expected Cash--Karp convergence behavior;
+- batched-versus-independent integration equivalence;
+- comparison of the single-bubble model against SciPy `DOP853`;
+- regression against independent legacy single-bubble reference trajectories;
+- single-bubble limits of coupled models;
+- equilibrium, symmetry, and coupling-structure checks;
+- coupled radial-translational regression against Doinikov Figure 2 reference trajectories;
+- terminal-event localization and bubble-collision event tests.
+
+Run the full suite with:
+
+```bash
+python -m pytest -v
+```
 
 ## Installation
 
@@ -48,13 +118,13 @@ Create a virtual environment:
 python -m venv .venv
 ```
 
-Activate it on Windows (PowerShell):
+Activate it on Windows PowerShell:
 
 ```powershell
 .\.venv\Scripts\Activate.ps1
 ```
 
-Or on Linux:
+or on Linux:
 
 ```bash
 source .venv/bin/activate
@@ -66,56 +136,102 @@ Install the package with development dependencies:
 python -m pip install -e ".[dev]"
 ```
 
-GPU dependencies and installation instructions will be added alongside the CUDA backend.
+## Examples
 
-## Development and testing
+Examples can be run as Python modules from the repository root.
 
-Run the automated test suite:
+Single-bubble radial dynamics:
 
 ```bash
-python -m pytest -v
+python -m examples.rkck45_single_bubble
 ```
 
-Run linting and formatting checks:
+Fixed-position coupled bubbles:
+
+```bash
+python -m examples.rkck45_coupled_bubbles
+```
+
+Single translating bubble:
+
+```bash
+python -m examples.rkck45_translating_bubble
+```
+
+Coupled translating bubble pair:
+
+```bash
+python -m examples.rkck45_coupled_translating_bubbles
+```
+
+Coupled 32-bubble radial-translational cluster:
+
+```bash
+python -m examples.rkck45_coupled_translating_cluster
+```
+
+## Reproducible figures and benchmarks
+
+The curated example and benchmark figures can be regenerated from the repository root with:
+
+```bash
+bash scripts/generate_figures.sh
+```
+
+The script runs the selected reference cases non-interactively and stores figures together with JSON metadata containing the simulation parameters and provenance information.
+
+Generated results are organized under:
+
+```text
+examples/figs/
+benchmarks/figs/radial/
+benchmarks/figs/translational/
+benchmarks/figs/performance/
+```
+
+Selected reference results:
+
+![coupled_translating_bubbles](examples/figs/rkck45_coupled_translating_bubbles.png)
+
+![Coupled translating bubble cluster](examples/figs/rkck45_coupled_translating_cluster.png)
+
+
+## Development
+
+Run linting and formatting checks with:
 
 ```bash
 ruff check .
 ruff format --check .
 ```
 
-Install the pre-commit hooks:
+Install the pre-commit hooks with:
 
 ```bash
 pre-commit install
 ```
 
-The repository also uses GitHub Actions to run automated checks on pushes and pull requests.
+GitHub Actions runs the automated checks on pushes and pull requests.
 
-## Development roadmap
+## Roadmap
 
 | Component | Status |
 |---|---|
 | Python package and CI infrastructure | Completed |
-| NumPy single-bubble reference solver | Planned |
-| Adaptive RKCK45 integrator | Planned |
-| Generalized multi-bubble coupling | Planned |
-| Numerical verification and regression tests | Planned |
-| C++/CUDA acceleration | Planned |
-| PyTorch RL environment | Planned |
-| Multi-agent PPO and population-based training | Planned |
-| Performance profiling and benchmarking | Planned |
+| NumPy single-bubble reference solver | Completed |
+| Adaptive RKCK45 integrator | Completed |
+| Prescribed acoustic-field models | Completed |
+| Fixed-position coupled radial dynamics | Completed |
+| Single-bubble translational dynamics | Completed |
+| Coupled radial-translational dynamics | Completed |
+| Terminal collision-event handling | Completed |
+| Numerical verification and reference benchmarks | Completed |
+| C++/CUDA accelerated backend | Next |
+| PyTorch integration and RL environments | Planned |
+| Collective / multi-agent control experiments | Planned |
+| GPU performance profiling and optimization | Planned |
 
-The roadmap describes intended development milestones rather than implemented functionality.
-
-## Numerical model
-
-The initial numerical model will describe the radial oscillation of acoustically driven spherical bubbles using a Keller–Miksis-type formulation.
-
-Multi-bubble interactions will be represented through pressure coupling between individual bubbles, initially neglecting finite acoustic propagation delays.
-
-The initial scope excludes bubble translation, coalescence, fragmentation, and spatially resolved acoustic wave propagation.
-
-These simplifications define the intended applicability of the initial control experiments.
+The completed Python layer is intended to remain the stable numerical reference while accelerated backends evolve independently.
 
 ## License
 
