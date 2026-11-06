@@ -1,0 +1,60 @@
+{
+  "acceleration_system_sizes": [
+    8,
+    16,
+    32,
+    64,
+    128
+  ],
+  "amplitude_bar": 0.2,
+  "backend": "NumPy dense CPU reference",
+  "benchmark": "coupled_translating_rhs_scaling",
+  "bubble_counts": [
+    2,
+    4,
+    8,
+    16,
+    32
+  ],
+  "figure": "coupled_translating_rhs_scaling.png",
+  "figure_sha256": "c7e4434228ead17e98f41f6ec6840e4a665f695948406e839813d94a91b9a2be",
+  "frequency_khz": 25.0,
+  "generated_utc": "2026-11-06T16:56:32.629572+00:00",
+  "git_commit": "976b13c72984733bb969ac6cbfdfe6701d3a5484",
+  "git_dirty": true,
+  "model": "coupled radial and 3D translational multi-bubble dynamics",
+  "reference_radius_micron": 50.0,
+  "spacing_micron": 600.0,
+  "timed_repeats": 25,
+  "timing_seconds": {
+    "maximum": [
+      0.0006139000179246068,
+      0.0010658000246621668,
+      0.0008476999937556684,
+      0.0007793999975547194,
+      0.0046326000010594726
+    ],
+    "mean": [
+      0.0005728920013643802,
+      0.0006172399991191923,
+      0.0006343039963394403,
+      0.0007245399989187718,
+      0.004416520004160702
+    ],
+    "median": [
+      0.0005677000153809786,
+      0.0005842999671585858,
+      0.0006190999993123114,
+      0.0007208000170066953,
+      0.0044027999974787235
+    ],
+    "minimum": [
+      0.0005636999849230051,
+      0.0005807999987155199,
+      0.0006144999642856419,
+      0.0007176999934017658,
+      0.004357500001788139
+    ]
+  },
+  "warmup_evaluations": 5
+}

@@ -14,7 +14,7 @@ def _parse_args() -> argparse.Namespace:
         "--t_end",
         type=float,
         default=20.0,
-        help="Integration domain end in periods",
+        help="Integration end multiplier for pi (t_end = value * pi)",
     )
     p.add_argument("--save", type=str, default=None, help="Optional output figure path")
 

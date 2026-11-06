@@ -155,7 +155,7 @@ run "${PYTHON_BIN}" -m benchmarks.translating_bubble_migration \
 # ---------------------------------------------------------------------------
 
 run "${PYTHON_BIN}" -m benchmarks.coupled_translating_rhs_scaling \
-    --bubble-counts 2 4 8 16 32 \
+    --bubble-counts 2 4 8 16 32 64 128 256 512 1024 2048 \
     --save "${BENCHMARK_PERFORMANCE_DIR}/coupled_translating_rhs_scaling.png"
 
 

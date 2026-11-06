@@ -3,9 +3,9 @@
   "figure": "single_bubble_bifurcation.png",
   "figure_sha256": "220e91b234de711bd097344645e6fcb1d1933d153bc0f1df07c57513a77c2193",
   "frequency_khz": 25.0,
-  "generated_utc": "2026-11-06T16:01:05.113866+00:00",
-  "git_commit": "0fd613cfcd52401b8b8a874d96f1458507ba2000",
-  "git_dirty": true,
+  "generated_utc": "2026-11-06T16:23:33.685132+00:00",
+  "git_commit": "976b13c72984733bb969ac6cbfdfe6701d3a5484",
+  "git_dirty": false,
   "interaction": "none",
   "model": "single-bubble Keller-Miksis radial dynamics",
   "num_amplitudes": 128,
@@ -27,7 +27,7 @@
   },
   "statistics": {
     "accepted_steps": 16021536,
-    "elapsed_seconds": 328.62502749997657,
+    "elapsed_seconds": 288.0227213999606,
     "rejected_steps": 4551413
   },
   "transient_cycles": 512
