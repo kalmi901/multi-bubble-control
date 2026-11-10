@@ -41,7 +41,7 @@ void fill_index_async(
     const int grid_size =
         static_cast<int>((size + block_size - 1) / block_size);
 
-    fill_index_kernel<<<grid_size, block_size, 0, stream>>>(output, size);
+    fill_index_kernel<<<grid_size, block_size, 0, stream>>>(output, static_cast<int>(size));
 
     MBC_CUDA_CHECK(cudaGetLastError());
 }

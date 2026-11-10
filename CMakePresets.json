@@ -1,0 +1,65 @@
+{
+  "version": 6,
+
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 24,
+    "patch": 0
+  },
+
+  "configurePresets": [
+    {
+      "name": "windows-cuda",
+      "displayName": "Windows CUDA",
+      "description": "VS2022 + MSVC v142 + CUDA 11.8",
+
+      "generator": "Visual Studio 17 2022",
+      "binaryDir": "${sourceDir}/build/native",
+
+      "architecture": "x64",
+      "toolset": "v142,host=x64,cuda=11.8",
+
+      "cacheVariables": {
+        "CMAKE_CUDA_ARCHITECTURES": "61"
+      }
+    }
+  ],
+
+  "buildPresets": [
+    {
+      "name": "windows-cuda-debug",
+      "displayName": "Windows CUDA Debug",
+      "configurePreset": "windows-cuda",
+      "configuration": "Debug"
+    },
+
+    {
+      "name": "windows-cuda-release",
+      "displayName": "Windows CUDA Release",
+      "configurePreset": "windows-cuda",
+      "configuration": "Release"
+    }
+  ],
+
+  "testPresets": [
+    {
+      "name": "windows-cuda-debug",
+      "displayName": "Windows CUDA Debug Tests",
+      "configurePreset": "windows-cuda",
+      "configuration": "Debug",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+
+    {
+      "name": "windows-cuda-release",
+      "displayName": "Windows CUDA Release Tests",
+      "configurePreset": "windows-cuda",
+      "configuration": "Release",
+      "output": {
+        "outputOnFailure": true
+      }
+    }
+  ]
+}
