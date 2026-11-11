@@ -1,5 +1,6 @@
-#include <cstddef>
 #include <iostream>
+#include <cstddef>
+#include <stdexcept>
 #include <utility>
 #include <cuda_runtime_api.h>
 #include "mbc/cuda/check.hpp"

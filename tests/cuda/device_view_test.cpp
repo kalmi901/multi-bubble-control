@@ -102,6 +102,26 @@ void test_make_device_view()
 
 }
 
+void test_make_const_device_view()
+{
+    mbc::cuda::DeviceBuffer<float> buffer(0, 1024);
+
+    const auto& const_buffer = buffer;
+    auto view = mbc::cuda::make_device_view(const_buffer);
+
+    if (view.data() != const_buffer.data()) {
+        throw std::runtime_error(
+            "Const DeviceView pointer mismatch"
+        );
+    }
+
+    if (view.size() != const_buffer.size()) {
+        throw std::runtime_error(
+            "Const DeviceView size mismatch"
+        );
+    }
+}
+
 
 int main(){
     try {
@@ -127,6 +147,11 @@ int main(){
             test_pointer_and_size();
             test_copy();
             test_make_device_view();
+            test_make_const_device_view();
+
+            std::cout << "DeviceView tests passed.\n";
+
+            return 0;
     }
     catch (const std::exception& error) {
         std::cerr
