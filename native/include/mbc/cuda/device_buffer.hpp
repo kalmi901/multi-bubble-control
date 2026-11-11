@@ -2,32 +2,24 @@
 #include <cstddef>
 #include <cstdio>
 #include <utility>
+
 #include <cuda_runtime_api.h>
+
 #include "mbc/cuda/check.hpp"
 #include "mbc/cuda/device_guard.hpp"
 
 namespace mbc::cuda {
 
-template <typename T>
-class DeviceBuffer {
-public:
-    DeviceBuffer(
-        int device_id,
-        std::size_t size):  
-        device_id_(device_id),
-        size_(size) {
+template <typename T> class DeviceBuffer {
+  public:
+    DeviceBuffer(int device_id, std::size_t size) : device_id_(device_id), size_(size) {
         if (size_ == 0) {
             return;
         }
 
         mbc::cuda::DeviceGuard guard(device_id_);
 
-        MBC_CUDA_CHECK(
-            cudaMalloc(
-                reinterpret_cast<void**>(&data_),
-                size_ * sizeof(T)
-            )
-        );
+        MBC_CUDA_CHECK(cudaMalloc(reinterpret_cast<void**>(&data_), size_ * sizeof(T)));
     }
 
     ~DeviceBuffer() noexcept {
@@ -38,9 +30,7 @@ public:
     DeviceBuffer& operator=(const DeviceBuffer&) = delete;
 
     DeviceBuffer(DeviceBuffer&& other) noexcept
-        : data_(other.data_),
-        size_(other.size_),
-        device_id_(other.device_id_) {
+        : data_(other.data_), size_(other.size_), device_id_(other.device_id_) {
         other.data_ = nullptr;
         other.size_ = 0;
     }
@@ -76,9 +66,8 @@ public:
         return device_id_;
     }
 
-private:
-    void release() noexcept
-    {
+  private:
+    void release() noexcept {
         if (data_ == nullptr) {
             return;
         }
@@ -100,22 +89,16 @@ private:
 
         if (err != cudaSuccess) {
             std::fprintf(
-                stderr,
-                "DeviceBuffer release failed: %s\n",
-                cudaGetErrorString(err)
-            );
+                stderr, "DeviceBuffer release failed: %s\n", cudaGetErrorString(err));
         }
 
         if (have_previous_device) {
-            const cudaError_t restore_err =
-                cudaSetDevice(previous_device);
+            const cudaError_t restore_err = cudaSetDevice(previous_device);
 
             if (restore_err != cudaSuccess) {
-                std::fprintf(
-                    stderr,
-                    "CUDA device restore failed: %s\n",
-                    cudaGetErrorString(restore_err)
-                );
+                std::fprintf(stderr,
+                             "CUDA device restore failed: %s\n",
+                             cudaGetErrorString(restore_err));
             }
         }
 
@@ -128,4 +111,4 @@ private:
     int device_id_{0};
 };
 
-}  // namespace mbc::cuda
+} // namespace mbc::cuda

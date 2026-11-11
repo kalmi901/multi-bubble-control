@@ -10,17 +10,11 @@
 namespace mbc::cuda {
 
 class Stream {
-public:
-    explicit Stream(int device_id)
-        : device_id_(device_id) {
+  public:
+    explicit Stream(int device_id) : device_id_(device_id) {
         mbc::cuda::DeviceGuard guard(device_id_);
 
-        MBC_CUDA_CHECK(
-            cudaStreamCreateWithFlags(
-                &stream_,
-                cudaStreamNonBlocking
-            )
-        );
+        MBC_CUDA_CHECK(cudaStreamCreateWithFlags(&stream_, cudaStreamNonBlocking));
     }
 
     ~Stream() noexcept {
@@ -31,8 +25,7 @@ public:
     Stream& operator=(const Stream&) = delete;
 
     Stream(Stream&& other) noexcept
-        : stream_(other.stream_),
-          device_id_(other.device_id_) {
+        : stream_(other.stream_), device_id_(other.device_id_) {
         other.stream_ = nullptr;
     }
 
@@ -64,13 +57,10 @@ public:
 
         DeviceGuard guard(device_id_);
 
-        MBC_CUDA_CHECK(
-            cudaStreamSynchronize(stream_)
-        );
+        MBC_CUDA_CHECK(cudaStreamSynchronize(stream_));
     }
- 
 
-private:
+  private:
     void release() noexcept {
         if (stream_ == nullptr) {
             return;
@@ -93,22 +83,16 @@ private:
 
         if (err != cudaSuccess) {
             std::fprintf(
-                stderr,
-                "CUDA stream release failed: %s\n",
-                cudaGetErrorString(err)
-            );
+                stderr, "CUDA stream release failed: %s\n", cudaGetErrorString(err));
         }
 
         if (have_previous_device) {
-            const cudaError_t restore_err =
-                cudaSetDevice(previous_device);
+            const cudaError_t restore_err = cudaSetDevice(previous_device);
 
             if (restore_err != cudaSuccess) {
-                std::fprintf(
-                    stderr,
-                    "CUDA device restore failed: %s\n",
-                    cudaGetErrorString(restore_err)
-                );
+                std::fprintf(stderr,
+                             "CUDA device restore failed: %s\n",
+                             cudaGetErrorString(restore_err));
             }
         }
 
@@ -119,4 +103,4 @@ private:
     int device_id_{0};
 };
 
-}  // namespace mbc::cuda
+} // namespace mbc::cuda

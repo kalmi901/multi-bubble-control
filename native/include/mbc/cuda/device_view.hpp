@@ -1,22 +1,15 @@
 #pragma once
 #include <cstddef>
+
 #include "mbc/cuda/device_buffer.hpp"
 
+namespace mbc::cuda {
 
-namespace mbc::cuda{
-
-template <typename T>
-class DeviceView {
-public:
+template <typename T> class DeviceView {
+  public:
     DeviceView() noexcept = default;
 
-    DeviceView(
-        T* data,
-        std::size_t size
-    ) noexcept
-        : data_(data),
-          size_(size)
-    {}
+    DeviceView(T* data, std::size_t size) noexcept : data_(data), size_(size) {}
 
     T* data() const noexcept {
         return data_;
@@ -30,18 +23,17 @@ public:
         return size_ == 0;
     }
 
-private:
+  private:
     T* data_{nullptr};
     std::size_t size_{0};
 };
 
-template<typename T>
-DeviceView<T> make_device_view(DeviceBuffer<T> &buffer) noexcept {
+template <typename T> DeviceView<T> make_device_view(DeviceBuffer<T>& buffer) noexcept {
     return DeviceView<T>{buffer.data(), buffer.size()};
 }
 
-template<typename T>
-DeviceView<const T> make_device_view(const DeviceBuffer<T> &buffer) noexcept {
+template <typename T>
+DeviceView<const T> make_device_view(const DeviceBuffer<T>& buffer) noexcept {
     return DeviceView<const T>{buffer.data(), buffer.size()};
 }
 

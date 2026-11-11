@@ -11,9 +11,7 @@
 #include "mbc/cuda/smoke.hpp"
 #include "mbc/cuda/stream.hpp"
 
-
-void test_kernel_execution()
-{
+void test_kernel_execution() {
     constexpr std::size_t size = 4096;
 
     mbc::cuda::DeviceBuffer<float> buffer(0, size);
@@ -23,21 +21,13 @@ void test_kernel_execution()
 
     std::vector<float> host_data(size);
 
-    mbc::cuda::fill_index_async(
-        view.data(),
-        view.size(),
-        stream.get()
-    );
+    mbc::cuda::fill_index_async(view.data(), view.size(), stream.get());
 
-    MBC_CUDA_CHECK(
-        cudaMemcpyAsync(
-            host_data.data(),
-            view.data(),
-            view.size() * sizeof(float),
-            cudaMemcpyDeviceToHost,
-            stream.get()
-        )
-    );
+    MBC_CUDA_CHECK(cudaMemcpyAsync(host_data.data(),
+                                   view.data(),
+                                   view.size() * sizeof(float),
+                                   cudaMemcpyDeviceToHost,
+                                   stream.get()));
 
     stream.synchronize();
 
@@ -45,29 +35,20 @@ void test_kernel_execution()
         const float expected = static_cast<float>(index);
 
         if (host_data[index] != expected) {
-            throw std::runtime_error(
-                "Kernel output mismatch"
-            );
+            throw std::runtime_error("Kernel output mismatch");
         }
     }
 }
 
-
-int main()
-{
+int main() {
     try {
         int device_count = 0;
 
-        const cudaError_t status =
-            cudaGetDeviceCount(&device_count);
+        const cudaError_t status = cudaGetDeviceCount(&device_count);
 
-        if (
-            status == cudaErrorNoDevice
-            || status == cudaErrorInsufficientDriver
-            || device_count == 0
-        ) {
-            std::cout
-                << "CUDA device unavailable; skipping test.\n";
+        if (status == cudaErrorNoDevice || status == cudaErrorInsufficientDriver ||
+            device_count == 0) {
+            std::cout << "CUDA device unavailable; skipping test.\n";
 
             return 77;
         }
@@ -76,16 +57,11 @@ int main()
 
         test_kernel_execution();
 
-        std::cout
-            << "CUDA infrastructure test passed.\n";
+        std::cout << "CUDA infrastructure test passed.\n";
 
         return 0;
-    }
-    catch (const std::exception& error) {
-        std::cerr
-            << "CUDA infrastructure test failed:\n"
-            << error.what()
-            << '\n';
+    } catch (const std::exception& error) {
+        std::cerr << "CUDA infrastructure test failed:\n" << error.what() << '\n';
 
         return 1;
     }
