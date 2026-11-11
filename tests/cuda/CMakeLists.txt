@@ -67,3 +67,27 @@ set_tests_properties(
         LABELS "cuda;gpu;unit"
         SKIP_RETURN_CODE 77
 )
+
+
+add_executable(
+    mbc_cuda_device_view_test
+    test_device_view.cpp
+)
+
+target_link_libraries(
+    mbc_cuda_device_view_test
+    PRIVATE
+        mbc_cuda_core
+)
+
+add_test(
+    NAME cuda_device_view
+    COMMAND mbc_cuda_device_view_test
+)
+
+set_tests_properties(
+    cuda_device_view
+    PROPERTIES
+        LABELS "cuda;gpu;unit"
+        SKIP_RETURN_CODE 77  
+)
