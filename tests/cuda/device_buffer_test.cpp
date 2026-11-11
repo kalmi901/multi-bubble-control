@@ -103,7 +103,15 @@ int main() {
             return 77;
         }
 
+        MBC_CUDA_CHECK(device_status);
 
+        test_allocation();
+        test_move_constructor();
+        test_move_assignment();
+
+        std::cout << "DeviceBuffer tests passed.\n";
+
+        return 0;
 
     }
     catch (const std::exception& error) {

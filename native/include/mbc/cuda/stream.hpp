@@ -13,7 +13,7 @@ class Stream {
 public:
     explicit Stream(int device_id)
         : device_id_(device_id) {
-        DeviceGuard guard(device_id_);
+        mbc::cuda::DeviceGuard guard(device_id_);
 
         MBC_CUDA_CHECK(
             cudaStreamCreateWithFlags(
@@ -58,7 +58,7 @@ public:
     }
 
     void synchronize() {
-        if (stream_ != nullptr) {
+        if (stream_ == nullptr) {
             return;
         }
 
@@ -77,20 +77,19 @@ private:
         }
 
         int previous_device = 0;
+        bool have_previous_device = false;
 
-        cudaError_t err =
-            cudaGetDevice(&previous_device);
+        cudaError_t err = cudaGetDevice(&previous_device);
 
         if (err == cudaSuccess) {
-            err = cudaSetDevice(device_id_);
+            have_previous_device = true;
         }
+
+        err = cudaSetDevice(device_id_);
 
         if (err == cudaSuccess) {
             err = cudaStreamDestroy(stream_);
         }
-
-        const cudaError_t restore_err =
-            cudaSetDevice(previous_device);
 
         if (err != cudaSuccess) {
             std::fprintf(
@@ -100,12 +99,17 @@ private:
             );
         }
 
-        if (restore_err != cudaSuccess) {
-            std::fprintf(
-                stderr,
-                "CUDA device restore failed: %s\n",
-                cudaGetErrorString(restore_err)
-            );
+        if (have_previous_device) {
+            const cudaError_t restore_err =
+                cudaSetDevice(previous_device);
+
+            if (restore_err != cudaSuccess) {
+                std::fprintf(
+                    stderr,
+                    "CUDA device restore failed: %s\n",
+                    cudaGetErrorString(restore_err)
+                );
+            }
         }
 
         stream_ = nullptr;

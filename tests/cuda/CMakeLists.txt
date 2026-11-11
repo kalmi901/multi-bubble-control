@@ -42,6 +42,7 @@ set_tests_properties(
     cuda_device_buffer
     PROPERTIES
         LABELS "cuda;gpu;unit"
+        SKIP_RETURN_CODE 77
 )
 
 

@@ -20,7 +20,7 @@ public:
             return;
         }
 
-        DeviceGuard guard(device_id_);
+        mbc::cuda::DeviceGuard guard(device_id_);
 
         MBC_CUDA_CHECK(
             cudaMalloc(

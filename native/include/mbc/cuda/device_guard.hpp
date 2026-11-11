@@ -2,6 +2,8 @@
 #include <cuda_runtime_api.h>
 #include "mbc/cuda/check.hpp"
 
+namespace mbc::cuda {
+
 class DeviceGuard {
 public:
     explicit DeviceGuard(int requested_device)
@@ -15,6 +17,11 @@ public:
         cudaSetDevice(previous_device_);
     }
 
+    DeviceGuard(const DeviceGuard&) = delete;
+    DeviceGuard& operator=(const DeviceGuard&) = delete;    
+
 private:
     int previous_device_{0};
 };
+
+}   // namespace mbc::cuda
