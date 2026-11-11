@@ -1,0 +1,44 @@
+BasedOnStyle: LLVM
+Language: Cpp
+
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+
+ColumnLimit: 88
+
+BreakBeforeBraces: Attach
+
+AllowShortFunctionsOnASingleLine: Empty
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+
+PointerAlignment: Left
+ReferenceAlignment: Left
+
+BinPackArguments: false
+BinPackParameters: false
+
+AlignAfterOpenBracket: Align
+AlignOperands: Align
+
+SortIncludes: CaseSensitive
+IncludeBlocks: Regroup
+
+IncludeCategories:
+  - Regex: '^<(iostream|stdexcept|utility|cstddef|cstdio|cmath|vector|sstream)>$'
+    Priority: 1
+
+  - Regex: '^<cuda.*>$'
+    Priority: 2
+
+  - Regex: '^"mbc/'
+    Priority: 3
+
+  - Regex: '.*'
+    Priority: 4
+
+SpaceBeforeParens: ControlStatements
+
+Cpp11BracedListStyle: true
+Standard: c++17
