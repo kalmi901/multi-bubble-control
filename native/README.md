@@ -4,13 +4,27 @@ This directory contains the native C++/CUDA backend for **multi-bubble-control**
 
 The existing Python/NumPy implementation remains the canonical physical and numerical reference. The native backend is developed independently with a focus on GPU performance, scalability, profiling, and future interoperability with PyTorch.
 
-The CUDA backend is intentionally not a line-by-line translation of the Python implementation. Physical models and numerical results should remain consistent, while data layout and execution strategy may differ substantially.
+The CUDA backend is intentionally not a line-by-line translation of the Python implementation. Physical models and numerical results should remain consistent, while data layout, memory management, and execution strategy may differ substantially.
 
 ## Current status
 
-The native backend currently provides the initial CUDA build and test infrastructure.
+The native backend currently provides the initial CUDA build, runtime infrastructure, and test foundation.
 
-The first smoke test verifies the complete native development path:
+The implemented infrastructure includes:
+
+- first-class CUDA support through CMake;
+- CUDA runtime error handling;
+- RAII-managed device memory;
+- RAII-managed non-blocking CUDA streams;
+- scoped CUDA device selection;
+- non-owning device memory views;
+- raw CUDA smoke testing;
+- unit tests for CUDA resource wrappers;
+- an integration test executing a real CUDA kernel through the wrapper infrastructure.
+
+No production bubble dynamics or numerical integration algorithms are implemented in the native backend yet.
+
+The current execution path is approximately:
 
 ```text
 CMake
@@ -22,16 +36,20 @@ C++ / CUDA compilation
 mbc_cuda_core static library
   |
   v
+DeviceBuffer + DeviceView + Stream
+  |
+  v
 CUDA kernel launch
   |
   v
 asynchronous device-to-host copy
   |
   v
+stream synchronization
+  |
+  v
 CTest validation
 ```
-
-No production bubble dynamics are implemented in the native backend yet.
 
 ## Project structure
 
@@ -43,17 +61,27 @@ native/
 │   └── mbc/
 │       └── cuda/
 │           ├── check.hpp
-│           └── smoke.hpp
+│           ├── device_buffer.hpp
+│           ├── device_guard.hpp
+│           ├── device_view.hpp
+│           ├── smoke.hpp
+│           └── stream.hpp
 │
 └── src/
     └── cuda/
         └── smoke.cu
 ```
 
-Native CUDA tests are located in:
+Native CUDA tests are located under:
 
 ```text
 tests/cuda/
+├── CMakeLists.txt
+├── device_buffer_test.cpp
+├── device_view_test.cpp
+├── infrastructure_test.cpp
+├── smoke_test.cpp
+└── stream_test.cpp
 ```
 
 The native backend is built as the static library:
@@ -70,14 +98,149 @@ The native backend follows several architectural constraints from the beginning:
 
 - Python/NumPy remains the physical and numerical reference implementation.
 - CUDA code must not depend on Python or PyTorch.
-- Solver APIs should operate on caller-owned device memory.
+- CUDA resources use explicit ownership semantics.
+- Solver APIs should operate primarily on caller-owned device memory.
 - CUDA execution should support caller-provided streams.
 - Core solver functions should avoid implicit global synchronization.
+- Device-local operations should preserve the caller's previously selected CUDA device.
+- Non-owning memory views should allow future interoperability with external allocations such as PyTorch tensors.
 - Temporary solver memory should eventually be managed through reusable workspaces.
 - Future PyTorch integration should wrap the CUDA core rather than duplicate it.
 - Independent simulation environments should remain independently schedulable to support future multi-stream and multi-GPU execution.
 
-The current smoke-test API already follows the basic asynchronous execution model.
+The current infrastructure is intentionally small and explicit so that later solver development can build on a clear ownership and execution model.
+
+## CUDA infrastructure
+
+### Error handling
+
+CUDA runtime calls that are allowed to propagate errors use:
+
+```cpp
+MBC_CUDA_CHECK(...)
+```
+
+defined in:
+
+```text
+check.hpp
+```
+
+CUDA errors are converted to `std::runtime_error` exceptions containing the failing expression, CUDA error string, source file, and source line.
+
+Destructors and cleanup paths are `noexcept` and therefore use explicit CUDA error-code handling instead of throwing exceptions.
+
+### DeviceGuard
+
+`DeviceGuard` temporarily selects a CUDA device and restores the previously active device when the guard leaves scope.
+
+Conceptually:
+
+```text
+current device = A
+
+{
+    DeviceGuard guard(B);
+
+    current device = B
+    ...
+}
+
+current device = A
+```
+
+This prevents resource construction and explicit device-local operations from unexpectedly changing CUDA device state for the calling thread.
+
+### DeviceBuffer
+
+`DeviceBuffer<T>` is a move-only RAII wrapper around CUDA device memory.
+
+It owns:
+
+```text
+device pointer
+element count
+device ID
+```
+
+Allocation is performed with `cudaMalloc`, and owned memory is released automatically when the object is destroyed.
+
+Copy operations are disabled to prevent multiple objects from owning the same allocation.
+
+Move construction and move assignment transfer ownership.
+
+Example:
+
+```cpp
+mbc::cuda::DeviceBuffer<float> buffer(
+    0,
+    4096
+);
+```
+
+### DeviceView
+
+`DeviceView<T>` is a lightweight non-owning view of device memory.
+
+It stores only:
+
+```text
+pointer
+element count
+```
+
+It performs no allocation and no deallocation.
+
+This distinction allows memory ownership to remain separate from solver APIs.
+
+A view can be constructed safely from a `DeviceBuffer` using:
+
+```cpp
+auto view =
+    mbc::cuda::make_device_view(buffer);
+```
+
+For const buffers, the helper produces:
+
+```cpp
+DeviceView<const T>
+```
+
+This provides const-correct read-only access where appropriate.
+
+The same abstraction can later wrap externally owned memory such as:
+
+```text
+PyTorch CUDA tensor
+external CUDA allocation
+solver workspace slice
+```
+
+without transferring ownership.
+
+### Stream
+
+`Stream` is a move-only RAII wrapper around a non-blocking CUDA stream.
+
+Example:
+
+```cpp
+mbc::cuda::Stream stream(0);
+```
+
+The underlying `cudaStream_t` can be passed to asynchronous CUDA operations using:
+
+```cpp
+stream.get()
+```
+
+Explicit synchronization is available through:
+
+```cpp
+stream.synchronize();
+```
+
+Resource destruction preserves the previously active CUDA device.
 
 ## Build system
 
@@ -98,7 +261,7 @@ CTest is used for native test discovery and execution.
 
 ## Windows development environment
 
-The initial development environment is:
+The initial local development environment is:
 
 ```text
 Windows 10 x64
@@ -110,7 +273,7 @@ NVIDIA GTX 1070
 CUDA architecture: sm_61
 ```
 
-CUDA 11.8 requires a compatible MSVC host compiler. On the current development system, the VS2019-compatible `v142` toolset is installed side-by-side with the newer Visual Studio 2022 toolchain.
+CUDA Toolkit 11.8 requires a compatible MSVC host compiler. On the current development system, the VS2019-compatible `v142` toolset is installed side-by-side with the newer Visual Studio 2022 toolchain.
 
 The newer MSVC installation can remain installed for other projects.
 
@@ -195,9 +358,9 @@ This is normally only required once when preparing the development machine.
 
 The repository uses `CMakePresets.json` to store common build configurations.
 
-A preset does not introduce a new build system. It simply stores the arguments that would otherwise have to be passed manually to CMake.
+A preset does not introduce a new build system. It stores the arguments that would otherwise have to be passed manually to CMake.
 
-For example, the current Windows configuration corresponds approximately to:
+The current Windows configuration corresponds approximately to:
 
 ```cmd
 cmake -S . -B build/native ^
@@ -243,12 +406,6 @@ Run the native tests with:
 ctest --preset windows-cuda-debug
 ```
 
-Expected result:
-
-```text
-100% tests passed
-```
-
 ## Release build
 
 Build the Release configuration with:
@@ -263,23 +420,141 @@ Run the Release tests with:
 ctest --preset windows-cuda-release
 ```
 
+## Clean validation
+
+Before completing a native development milestone, the build can be validated from a clean build directory:
+
+```cmd
+rmdir /S /Q build\native
+
+cmake --preset windows-cuda
+
+cmake --build --preset windows-cuda-debug
+ctest --preset windows-cuda-debug
+
+cmake --build --preset windows-cuda-release
+ctest --preset windows-cuda-release
+```
+
+This avoids accidentally depending on stale CMake cache entries or previously generated build artifacts.
+
+## Native CUDA tests
+
+The current native test suite contains five CTest targets.
+
+### `cuda_smoke`
+
+The raw CUDA smoke test exercises the CUDA Runtime API directly:
+
+```text
+cudaStreamCreateWithFlags
+cudaMalloc
+cudaMallocHost
+CUDA kernel launch
+cudaMemcpyAsync
+cudaStreamSynchronize
+cudaFree
+cudaFreeHost
+cudaStreamDestroy
+```
+
+It intentionally retains the low-level CUDA API so that the underlying resource and execution model remains visible.
+
+### `cuda_device_buffer`
+
+Unit tests for `DeviceBuffer<T>` validate:
+
+- device allocation;
+- reported size and device ID;
+- move construction;
+- move assignment;
+- transferred ownership;
+- reset state of moved-from buffers.
+
+### `cuda_stream`
+
+Unit tests for `Stream` validate:
+
+- stream creation;
+- device association;
+- move construction;
+- move assignment;
+- transferred ownership;
+- explicit stream synchronization.
+
+### `cuda_device_view`
+
+Unit tests for `DeviceView<T>` validate:
+
+- default empty views;
+- pointer and size storage;
+- copy behavior;
+- creation from `DeviceBuffer<T>`;
+- creation of const views from const buffers.
+
+### `cuda_infrastructure`
+
+The infrastructure integration test executes a real CUDA kernel through the new wrapper layer.
+
+The tested path is:
+
+```text
+DeviceBuffer<float>
+        |
+        v
+make_device_view()
+        |
+        v
+DeviceView<float>
+        |
+        v
+fill_index_async()
+        |
+        v
+cudaMemcpyAsync()
+        |
+        v
+Stream::synchronize()
+        |
+        v
+host-side result validation
+```
+
+This test verifies that the individual infrastructure components work together in an actual CUDA execution path.
+
 ## Running selected tests
 
 CUDA tests are labeled using CTest labels.
 
-For example:
+Run all CUDA tests:
 
 ```cmd
 ctest --test-dir build/native -C Debug -L cuda --output-on-failure
 ```
 
-The initial smoke test is labeled:
+Run unit tests:
+
+```cmd
+ctest --test-dir build/native -C Debug -L unit --output-on-failure
+```
+
+Run integration tests:
+
+```cmd
+ctest --test-dir build/native -C Debug -L integration --output-on-failure
+```
+
+The test labels currently distinguish:
 
 ```text
 cuda
 gpu
 smoke
+unit
+integration
 ```
+
+Systems without a usable CUDA device may skip GPU-dependent tests using return code `77`.
 
 ## CUDA architecture
 
@@ -291,37 +566,52 @@ The Windows development preset therefore currently builds for:
 sm_61
 ```
 
-The CUDA architecture is a build configuration property and should not be hard-coded into solver source code.
+The CUDA architecture is a build configuration property and is not hard-coded into solver source code.
 
 Future presets may target different GPUs, for example:
 
 ```text
-local GTX 1070
-cloud GPU
+local development GPU
 profiling GPU
+cloud GPU
 CI GPU runner
 ```
 
-without modifying the numerical implementation.
+without modifying numerical implementation code.
 
-## Smoke test
+## Current milestone boundary
 
-The initial smoke kernel writes array indices to device memory.
+The current native infrastructure milestone intentionally stops before implementing production numerical methods.
 
-It is intentionally simple. Its purpose is to verify:
+Implemented:
 
-- CUDA compilation;
-- CUDA runtime linking;
-- caller-owned device memory;
-- caller-provided CUDA streams;
-- asynchronous kernel execution;
-- asynchronous memory copies;
-- CUDA error propagation;
-- CTest integration.
+```text
+CUDA build system
+CUDA error handling
+device selection guard
+device memory ownership
+device memory views
+CUDA stream ownership
+raw CUDA smoke test
+resource unit tests
+wrapper-based kernel integration test
+```
 
-The smoke test uses the raw CUDA Runtime API directly so that the low-level allocation and execution mechanism remains visible.
+Not yet implemented:
 
-Future production code will introduce higher-level C++ abstractions such as RAII-managed device buffers and streams.
+```text
+RKCK integration
+Keller--Miksis dynamics
+solver workspaces
+coupled bubble dynamics
+collision handling
+performance kernels
+multi-stream scheduling
+multi-GPU orchestration
+PyTorch integration
+```
+
+These belong to later CUDA backend milestones.
 
 ## Development roadmap
 
@@ -330,7 +620,7 @@ The native backend will be developed incrementally.
 The planned progression is approximately:
 
 ```text
-CUDA build and test infrastructure
+CUDA infrastructure
         |
         v
 basic numerical integration on GPU
@@ -363,6 +653,6 @@ Each major CUDA component should be validated against the Python/NumPy reference
 
 The current Windows environment is primarily used for convenient local development.
 
-A containerized Linux/CUDA development and benchmarking environment is planned for a later performance-analysis milestone. The container will provide a reproducible compiler, CUDA toolkit, CMake, and dependency environment for development across multiple machines and cloud GPUs.
+A containerized Linux/CUDA development and benchmarking environment is planned for a later performance-analysis milestone. The container will provide a reproducible compiler, CUDA toolkit, CMake, and dependency environment across multiple machines and cloud GPUs.
 
 Performance results will still record the underlying GPU, driver, host environment, compiler configuration, and relevant runtime settings separately.
