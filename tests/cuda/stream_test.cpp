@@ -7,6 +7,8 @@
 #include "mbc/cuda/check.hpp"
 #include "mbc/cuda/stream.hpp"
 
+#include "cuda_test_utils.hpp"
+
 void test_creation() {
     mbc::cuda::Stream stream(0);
 
@@ -60,18 +62,10 @@ void test_move_assignment() {
 
 int main() {
     try {
-        int device_count = 0;
-
-        const cudaError_t status = cudaGetDeviceCount(&device_count);
-
-        if (status == cudaErrorNoDevice || status == cudaErrorInsufficientDriver ||
-            device_count == 0) {
+        if (!mbc::test::cuda_device_available()) {
             std::cout << "CUDA device unavailable; skipping test.\n";
-
             return 77;
         }
-
-        MBC_CUDA_CHECK(status);
 
         test_creation();
         test_move_constructor();

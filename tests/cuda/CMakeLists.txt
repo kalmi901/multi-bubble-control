@@ -116,3 +116,48 @@ set_tests_properties(
         LABELS "cuda;gpu;integration"
         SKIP_RETURN_CODE 77
 )
+
+add_executable(
+    mbc_oscillator_rhs_test
+    oscillator_rhs_test.cpp
+)
+
+target_link_libraries(
+    mbc_oscillator_rhs_test
+    PRIVATE
+        mbc_cuda_core
+)
+
+add_test(
+    NAME oscillator_rhs
+    COMMAND mbc_oscillator_rhs_test
+)
+
+set_tests_properties(
+    oscillator_rhs
+    PROPERTIES
+        LABELS "unit;host;ode"
+)
+
+add_executable(
+    mbc_harmonic_oscillator_rhs_device_test
+    oscillator_rhs_device_test.cu
+)
+
+target_link_libraries(
+    mbc_harmonic_oscillator_rhs_device_test
+    PRIVATE
+        mbc_cuda_core
+)
+
+add_test(
+    NAME harmonic_oscillator_rhs_device
+    COMMAND mbc_harmonic_oscillator_rhs_device_test
+)
+
+set_tests_properties(
+    harmonic_oscillator_rhs_device
+    PROPERTIES
+        LABELS "cuda;gpu;unit;ode"
+        SKIP_RETURN_CODE 77
+)

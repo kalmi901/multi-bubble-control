@@ -3,10 +3,10 @@
 #include <stdexcept>
 #include <utility>
 
-#include <cuda_runtime_api.h>
-
 #include "mbc/cuda/check.hpp"
 #include "mbc/cuda/device_buffer.hpp"
+
+#include "cuda_test_utils.hpp"
 
 void test_allocation() {
     mbc::cuda::DeviceBuffer<float> buffer(0, 1024);
@@ -71,16 +71,10 @@ void test_move_assignment() {
 
 int main() {
     try {
-        int device_count = 0;
-        const cudaError_t device_status = cudaGetDeviceCount(&device_count);
-        if (device_status == cudaErrorNoDevice ||
-            device_status == cudaErrorInsufficientDriver || device_count == 0) {
+        if (!mbc::test::cuda_device_available()) {
             std::cout << "CUDA device unavailable; skipping test.\n";
-
             return 77;
         }
-
-        MBC_CUDA_CHECK(device_status);
 
         test_allocation();
         test_move_constructor();
@@ -92,6 +86,7 @@ int main() {
 
     } catch (const std::exception& error) {
         std::cerr << "CUDA device buffer failed:\n" << error.what() << "\n";
+        
         return 1;
     }
 }

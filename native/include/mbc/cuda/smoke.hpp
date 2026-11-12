@@ -6,10 +6,6 @@
 
 namespace mbc::cuda {
 
-void fill_index_async(
-    float* output,
-    std::size_t size,
-    cudaStream_t stream
-);
+void fill_index_async(float* output, std::size_t size, cudaStream_t stream);
 
-}  // namespace mbc::cuda
+} // namespace mbc::cuda

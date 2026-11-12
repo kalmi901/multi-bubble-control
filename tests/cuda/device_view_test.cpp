@@ -5,6 +5,8 @@
 #include "mbc/cuda/device_buffer.hpp"
 #include "mbc/cuda/device_view.hpp"
 
+#include "cuda_test_utils.hpp"
+
 void test_default_view() {
     mbc::cuda::DeviceView<float> view;
 
@@ -86,18 +88,10 @@ void test_make_const_device_view() {
 
 int main() {
     try {
-        int device_count = 0;
-
-        const cudaError_t status = cudaGetDeviceCount(&device_count);
-
-        if (status == cudaErrorNoDevice || status == cudaErrorInsufficientDriver ||
-            device_count == 0) {
+        if (!mbc::test::cuda_device_available()) {
             std::cout << "CUDA device unavailable; skipping test.\n";
-
             return 77;
         }
-
-        MBC_CUDA_CHECK(status);
 
         test_default_view();
         test_pointer_and_size();

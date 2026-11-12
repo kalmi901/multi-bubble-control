@@ -7,20 +7,14 @@
 #include "mbc/cuda/check.hpp"
 #include "mbc/cuda/smoke.hpp"
 
+#include "cuda_test_utils.hpp"
+
 int main() {
     try {
-        int device_count = 0;
-
-        const cudaError_t device_status = cudaGetDeviceCount(&device_count);
-
-        if (device_status == cudaErrorNoDevice ||
-            device_status == cudaErrorInsufficientDriver || device_count == 0) {
+        if (!mbc::test::cuda_device_available()) {
             std::cout << "CUDA device unavailable; skipping test.\n";
-
             return 77;
         }
-
-        MBC_CUDA_CHECK(device_status);
 
         constexpr std::size_t size = 4096;
 
